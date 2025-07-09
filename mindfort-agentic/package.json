@@ -14,8 +14,7 @@
     "neo4j-driver": "^5.28.1",
     "next": "15.3.5",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "tsconfig-paths": "^4.2.0"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -29,6 +28,7 @@
     "prettier": "^3.6.2",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.8.3"
   }
 }
