@@ -1,26 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-bg: #0d0d0d;
+  --color-surface: #1a1a1a;
+  --color-accent: #ff2c2c;
+  --color-soft: #2e2e2e;
+  --color-glowing: #ff3c3c;
+  --color-text: #ffffff;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: "JetBrains Mono", monospace;
+}
+
+input,
+textarea,
+button {
+  font-family: inherit;
+  color: inherit;
 }
