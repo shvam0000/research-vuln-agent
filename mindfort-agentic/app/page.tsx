@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 
 const HomePage = () => {
   const [messages, setMessages] = useState<
@@ -9,30 +9,98 @@ const HomePage = () => {
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
 
-  const sendMessage = async () => {
+  // const [showDebug, setShowDebug] = useState(true)
+  // const sendMessage = async () => {
+  //   if (!input.trim()) return
+  //   const userMessage: { role: "user" | "agent"; content: string } = {
+  //     role: "user",
+  //     content: input,
+  //   }
+  //   setMessages([...messages, userMessage])
+  //   setLoading(true)
+
+  //   const res = await fetch("http://localhost:5000/chat", {
+  //     method: "POST",
+  //     headers: { "Content-Type": "application/json" },
+  //     body: JSON.stringify({ message: input }),
+  //   })
+
+  //   const data = await res.json()
+
+  //   setMessages((prev) => [
+  //     ...prev,
+  //     { role: "user", content: input },
+  //     { role: "agent", content: data.response },
+  //   ])
+  //   setInput("")
+  //   setLoading(false)
+  // }
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      const el = document.documentElement
+      el.scrollTop = el.scrollHeight
+    }, 100)
+
+    return () => clearTimeout(timeout)
+  }, [messages])
+
+  const sendMessage = () => {
     if (!input.trim()) return
-    const userMessage: { role: "user" | "agent"; content: string } = {
+
+    const userMsg: { role: "user"; content: string } = {
       role: "user",
       content: input,
     }
-    setMessages([...messages, userMessage])
+    setMessages((prev) => [...prev, userMsg])
+    setInput("")
     setLoading(true)
 
-    const res = await fetch("http://localhost:5000/chat", {
+    fetch("http://localhost:5000/chat/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: input }),
     })
+      .then((response) => {
+        if (!response.body) {
+          setLoading(false)
+          return
+        }
 
-    const data = await res.json()
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder("utf-8")
+        let agentMsg = ""
 
-    setMessages((prev) => [
-      ...prev,
-      { role: "user", content: input },
-      { role: "agent", content: data.response },
-    ])
-    setInput("")
-    setLoading(false)
+        function read() {
+          reader.read().then(({ done, value }) => {
+            if (done) {
+              setLoading(false)
+              return
+            }
+
+            const chunk = decoder.decode(value)
+            agentMsg += chunk
+
+            setMessages((prev) => {
+              const newMessages = [...prev]
+              if (newMessages[prev.length - 1]?.role === "agent") {
+                newMessages[prev.length - 1].content = agentMsg
+              } else {
+                newMessages.push({ role: "agent", content: agentMsg })
+              }
+              return [...newMessages]
+            })
+
+            read()
+          })
+        }
+
+        read()
+      })
+      .catch((e) => {
+        console.error("Stream error", e)
+        setLoading(false)
+      })
   }
 
   return (
@@ -75,9 +143,38 @@ const HomePage = () => {
                 textAlign: msg.role === "user" ? "right" : "left",
               }}
             >
-              {msg.content}
+              <div className="font-mono text-sm">
+                {msg.content.split("\n").map((line, j) => {
+                  let highlight = ""
+                  if (line.startsWith("Thought:"))
+                    highlight = "text-yellow-500 font-semibold"
+                  else if (line.startsWith("Action:"))
+                    highlight = "text-blue-500 font-semibold"
+                  else if (line.startsWith("Observation:"))
+                    highlight = "text-green-500 font-semibold"
+                  else if (line.startsWith("Final Answer:"))
+                    highlight = "text-red-500 font-bold"
+
+                  return (
+                    <div key={j} className={highlight}>
+                      {line}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           ))}
+          {/* {showDebug && (
+            <div className="text-sm font-mono text-left mt-2 text-gray-400">
+              {messages[messages.length - 1]?.content
+                .split("\n")
+                .map((line, j) => (
+                  <div key={j} className="whitespace-pre-wrap">
+                    {line}
+                  </div>
+                ))}
+            </div>
+          )} */}
           {loading && (
             <div className="text-gray-400 animate-pulse">
               Agent is thinking...

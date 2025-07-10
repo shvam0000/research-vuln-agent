@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, Response, json, jsonify, request, stream_with_context
 import os
 import time
 import requests
@@ -8,7 +8,7 @@ from flask_cors import CORS
 
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["http://localhost:3000"])
 load_dotenv()
 
 
@@ -109,23 +109,83 @@ def chat():
             for r in result
         ])
 
+        # prompt = f"""
+        #         You are a security analyst agent.
+
+        #         For the following user query and context, respond in the following format:
+
+        #         Thought: what you are considering  
+        #         Action: what reasoning you're applying  
+        #         Observation: result of that reasoning  
+        #         ...repeat as needed...  
+        #         Final Answer: your final recommendation or answer
+
+        #         Context:
+        #         {context}
+
+        #         User query:
+        #         {user_msg}
+        #         """
+
         prompt = f"""
-            As a cybersecurity assistant, briefly summarize the following vulnerabilities and provide clear, actionable insights. 
-            Focus on severity, impact, and suggested mitigations—keep it short and to the point.
+                You are a cybersecurity expert analyzing vulnerabilities.
 
-            Context:
-            {context}
+                Follow this structure:
+                Thought: (your reasoning)
+                Action: (what you'd do next or look for)
+                Observation: (result of action if applicable)
+                ... (repeat as needed)
+                Final Answer: (your clear, summarized response)
 
-            User question:
-            {user_msg}
-            """
+                Here is the context:
+                {context}
+
+                User query:
+                {user_msg}
+                """
 
         try:
             reply = call_agent(prompt)
-            return jsonify({"response": reply})
+            return jsonify({ "response": reply.replace("\\n", "\n") })
         except Exception as e:
             return jsonify({"error": str(e)}), 500
         
+@app.route("/chat/stream", methods=["POST"])
+def chat_stream():
+    data = request.get_json()
+    user_msg = data.get("message")
+    if not user_msg:
+        return {"error": "Message is required"}, 400
+
+    context = "... your Neo4j query + formatting here ..."
+
+    prompt = f"""Think step-by-step. Show each reasoning step before final answer.
+                Context:
+                {context}
+                Question: {user_msg}
+                """
+
+    def event_stream():
+        headers = {
+            "Authorization": f"Bearer {LITELLM_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": MODEL,
+            "stream": True,
+            "messages": [{"role": "user", "content": prompt}]
+        }
+        with requests.post(f"{LITELLM_URL}/chat/completions", json=payload, headers=headers, stream=True) as r:
+            for line in r.iter_lines():
+                if line and line.startswith(b"data: "):
+                    data = line.decode("utf-8")[6:]
+                    if data.strip() == "[DONE]":
+                        break
+                    token = json.loads(data)["choices"][0]["delta"].get("content", "")
+                    yield f"{token}"
+
+    return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
+
 @app.teardown_appcontext
 def close_driver(exception):
     driver.close()
