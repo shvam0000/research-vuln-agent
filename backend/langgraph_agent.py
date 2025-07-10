@@ -7,11 +7,14 @@ from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 import json
 from neo4j import GraphDatabase # Import GraphDatabase
+import time
+import uuid
+from datetime import datetime, date
 
 load_dotenv()
 
 # --- Tools ---
-@tool
+@tool   
 def explain_vector(vector: str) -> str:
     """Explains typical root causes or attack patterns for a specific vulnerability vector. Use this tool when the user asks about 'code', 'network', or 'config' vulnerabilities."""
     print(f"---CALLING TOOL: explain_vector with vector: {vector}---")
@@ -25,8 +28,17 @@ from datetime import datetime, date
 
 @tool
 def query_neo4j(query: str, db_driver: Any = None) -> str:
-    """Executes Cypher query and returns JSON-safe output."""
-    def serialize_value(value):
+    """
+    Executes a Cypher query against the Neo4j database and returns the results.
+    Use this tool to retrieve information about findings, vulnerabilities, or relationships
+    from the knowledge graph.
+    The query should be a valid Cypher query string.
+    Example: MATCH (f:Finding)-[:HAS_VULNERABILITY]->(v:Vulnerability) RETURN f.id, v.title LIMIT 5
+    """
+    query_id = str(uuid.uuid4())[:8]
+    start_time = time.time()
+    
+    def serialize_value(value):  # Add this back
         if isinstance(value, (datetime, date)):
             return value.isoformat()
         if isinstance(value, dict):
@@ -34,7 +46,7 @@ def query_neo4j(query: str, db_driver: Any = None) -> str:
         if isinstance(value, list):
             return [serialize_value(v) for v in value]
         return value
-
+    
     print(f"---CALLING TOOL: query_neo4j with query: {query}---")
     if db_driver is None:
         return "Error: Neo4j database driver not provided to tool."
@@ -42,18 +54,27 @@ def query_neo4j(query: str, db_driver: Any = None) -> str:
     try:
         with db_driver.session() as session:
             result = session.run(query)
-            records = [serialize_value(record.data()) for record in result]
+            records = [serialize_value(record.data()) for record in result]  # Use serialize_value
         if records:
+            duration = time.time() - start_time
+            print(f"✅ [QUERY-{query_id}] Completed in {duration:.3f}s")
             return json.dumps(records, indent=2)
         else:
+            duration = time.time() - start_time
+            print(f"✅ [QUERY-{query_id}] No results in {duration:.3f}s")
             return "No results found for the query."
     except Exception as e:
-        return f"Error executing Neo4j query: {e}"
+        duration = time.time() - start_time
+        print(f"❌ [QUERY-{query_id}] Error in {duration:.3f}s: {e}")
+        return f"Error executing Neo4j query: {e}"  # Return error message, don't raise
 
 # --- Agent State ---
 class AgentState(TypedDict):
     messages: Annotated[list[AnyMessage], lambda x, y: x + y]
     db_driver: Any  # Add this line
+    trace_id: str  # Add this
+    user_id: str   # Add this
+    timestamp: str # Add this
 
 # --- Agent Nodes ---
 def call_model(state: AgentState):
@@ -138,6 +159,7 @@ chain = workflow.compile()
 def stream_agent_steps(user_msg: str, db_driver=None):
     """Streams the agent's intermediate steps, yielding a JSON object for each step."""
     try:
+        trace_id = str(uuid.uuid4())
         inputs = {
             "messages": [
                 SystemMessage(content="""You are a helpful cybersecurity analyst.
@@ -160,7 +182,10 @@ Always think step-by-step and show your reasoning.
 """),
                 HumanMessage(content=user_msg)
             ],
-            "db_driver": db_driver
+            "db_driver": db_driver,
+            "trace_id": trace_id,  # Add this
+            "user_id": "anonymous",  # Add this
+            "timestamp": datetime.now().isoformat()  # Add this
         }
 
         # Stream response from the agent

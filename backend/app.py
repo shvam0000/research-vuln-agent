@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 from neo4j import GraphDatabase
 from flask_cors import CORS
 from langgraph_agent import ask_agent, stream_agent_steps
+import uuid
+from datetime import datetime
 
 
 app = Flask(__name__)
@@ -129,14 +131,19 @@ def chat_stream():
     if not user_msg:
         return {"error": "Message is required"}, 400
 
+    trace_id = str(uuid.uuid4())
+    print(f" [TRACE-{trace_id}] New chat request: {user_msg[:50]}...")
+
     def event_stream():
         """Generator function to stream agent steps."""
         try:
             print("DEBUG: driver is", driver)
             for step in stream_agent_steps(user_msg, db_driver=driver):
+                step["trace_id"] = trace_id  # Add trace ID to each step
                 yield f"data: {json.dumps(step)}\n\n"
         except Exception as e:
-            error_message = {"step": "Error", "content": str(e)}
+            print(f"❌ [TRACE-{trace_id}] Error: {e}")
+            error_message = {"step": "Error", "content": str(e), "trace_id": trace_id}
             yield f"data: {json.dumps(error_message)}\n\n"
 
     return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
