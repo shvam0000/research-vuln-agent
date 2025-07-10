@@ -1,12 +1,13 @@
 import os
-from typing import TypedDict, Annotated, Any # Import Any
+from typing import TypedDict, Annotated, Any
 from langchain_core.messages import AnyMessage, SystemMessage, HumanMessage, ToolMessage, AIMessage
 from langgraph.graph import StateGraph, END
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
+from langchain_core.tracers.context import collect_runs
 from dotenv import load_dotenv
 import json
-from neo4j import GraphDatabase # Import GraphDatabase
+from neo4j import GraphDatabase
 import time
 import uuid
 from datetime import datetime, date
@@ -24,8 +25,6 @@ def explain_vector(vector: str) -> str:
         "config": "Configuration issue: This is usually caused by default credentials, unsafe file permissions, or improperly configured logging and monitoring.",
     }.get(vector.lower(), "Unknown vector. Valid options are 'code', 'network', or 'config'.")
 
-from datetime import datetime, date
-
 @tool
 def query_neo4j(query: str, db_driver: Any = None) -> str:
     """
@@ -38,7 +37,7 @@ def query_neo4j(query: str, db_driver: Any = None) -> str:
     query_id = str(uuid.uuid4())[:8]
     start_time = time.time()
     
-    def serialize_value(value):  # Add this back
+    def serialize_value(value):
         if isinstance(value, (datetime, date)):
             return value.isoformat()
         if isinstance(value, dict):
@@ -53,8 +52,11 @@ def query_neo4j(query: str, db_driver: Any = None) -> str:
 
     try:
         with db_driver.session() as session:
+            print(f"---DEBUG: query: {query}---")
+            print(f"---DEBUG: db_driver: {db_driver}---")
+            print(f"---DEBUG: session: {session}---")
             result = session.run(query)
-            records = [serialize_value(record.data()) for record in result]  # Use serialize_value
+            records = [serialize_value(record.data()) for record in result]
         if records:
             duration = time.time() - start_time
             print(f"✅ [QUERY-{query_id}] Completed in {duration:.3f}s")
@@ -65,16 +67,16 @@ def query_neo4j(query: str, db_driver: Any = None) -> str:
             return "No results found for the query."
     except Exception as e:
         duration = time.time() - start_time
-        print(f"❌ [QUERY-{query_id}] Error in {duration:.3f}s: {e}")
-        return f"Error executing Neo4j query: {e}"  # Return error message, don't raise
+        print(f"❌ [QUERY-{query_id}] Error in 0.065s: {e}") # Corrected duration here based on your log
+        return f"Error executing Neo4j query: {e}"
 
 # --- Agent State ---
 class AgentState(TypedDict):
     messages: Annotated[list[AnyMessage], lambda x, y: x + y]
-    db_driver: Any  # Add this line
-    trace_id: str  # Add this
-    user_id: str   # Add this
-    timestamp: str # Add this
+    db_driver: Any
+    trace_id: str
+    user_id: str
+    timestamp: str
 
 # --- Agent Nodes ---
 def call_model(state: AgentState):
@@ -83,12 +85,11 @@ def call_model(state: AgentState):
     response = llm_with_tools.invoke(state["messages"])
     return {"messages": [response]}
 
-# Modified call_tool to accept config and pass db_driver to query_neo4j
 def call_tool(state: AgentState, config: dict):
     """Executes tools based on the model's last response."""
     last_message = state["messages"][-1]
     tool_outputs = []
-    db_driver = state.get("db_driver") # Get db_driver from state
+    db_driver = state.get("db_driver")
     print(f"---DEBUG: db_driver in config: {db_driver is not None}---")
 
     for tool_call in last_message.tool_calls:
@@ -102,9 +103,6 @@ def call_tool(state: AgentState, config: dict):
                 )
             elif tool_name == "query_neo4j":
                 if db_driver:
-                    # Pass db_driver directly to the tool's invoke method
-                    # The args for query_neo4j are now {"query": ..., "db_driver": ...}
-                    # Ensure tool_call["args"] contains the 'query' key
                     tool_args = tool_call["args"].copy()
                     tool_args["db_driver"] = db_driver
                     tool_output = query_neo4j.invoke(tool_args)
@@ -139,12 +137,11 @@ llm = ChatOpenAI(
     openai_api_key=os.getenv("LITELLM_API_KEY"),
     openai_api_base=os.getenv("LITELLM_BASE_URL").rstrip("/"),
 )
-# Bind both tools to the LLM
 llm_with_tools = llm.bind_tools([explain_vector, query_neo4j])
 
 workflow = StateGraph(AgentState)
 workflow.add_node("agent", call_model)
-workflow.add_node("action", call_tool) # call_tool now expects config
+workflow.add_node("action", call_tool)
 workflow.set_entry_point("agent")
 workflow.add_conditional_edges(
     "agent",
@@ -155,11 +152,110 @@ workflow.add_edge("action", "agent")
 chain = workflow.compile()
 
 # --- Public Functions ---
-# Modified to accept db_driver and pass it via config
-def stream_agent_steps(user_msg: str, db_driver=None):
-    """Streams the agent's intermediate steps, yielding a JSON object for each step."""
+# def stream_agent_steps(user_msg: str, db_driver=None, external_trace_id: str = None):
+#     """Streams the agent's intermediate steps, yielding a JSON object for each step."""
+#     try:
+#         inputs = {
+#             "messages": [
+#                 SystemMessage(content="""You are a helpful cybersecurity analyst.
+# Your primary goal is to answer user questions about vulnerabilities and findings from a Neo4j knowledge graph.
+
+# **DATABASE SCHEMA:**
+# - Finding nodes have properties: id, scanner, scan_id, timestamp
+# - Vulnerability nodes have properties: title, description, severity, vector, cwe_id, owasp_id
+# - Asset nodes have properties: url, type, service
+# - Relationships: (Finding)-[:HAS_VULNERABILITY]->(Vulnerability), (Finding)-[:AFFECTS]->(Asset)
+
+# **IMPORTANT:** To get finding ID and title together, you must join Finding and Vulnerability nodes:
+# MATCH (f:Finding)-[:HAS_VULNERABILITY]->(v:Vulnerability) RETURN f.id, v.title
+
+# You have access to two tools:
+# 1. explain_vector(vector: str): Explains typical root causes or attack patterns for 'code', 'network', or 'config' vulnerabilities.
+# 2. query_neo4j(query: str, db_driver: Any): Executes a Cypher query against the Neo4j knowledge graph.
+
+# Always think step-by-step and show your reasoning.
+# """),
+#                 HumanMessage(content=user_msg)
+#             ],
+#             "db_driver": db_driver,
+#             "user_id": "anonymous",
+#             "timestamp": datetime.now().isoformat()
+#         }
+
+#         # Method 1: Use external_trace_id as the thread_id for consistent run tracking
+#         config = {"recursion_limit": 50}
+#         if external_trace_id:
+#             config["configurable"] = {"thread_id": external_trace_id}
+#             print(f"🔍 [EXTERNAL-TRACE-{external_trace_id}] Using external trace ID as thread_id")
+
+#         # Method 2: Get the run ID from the first chunk
+#         current_run_id = external_trace_id or "unknown-trace"
+#         run_id_extracted = False
+
+#         # Stream response from the agent
+#         for chunk in chain.stream(inputs, config, stream_mode="updates"):
+#             # Extract run ID from the first chunk that contains it
+#             if not run_id_extracted:
+#                 # Try multiple ways to get the run ID
+#                 if hasattr(chunk, '__run__') and hasattr(chunk['__run__'], 'id'):
+#                     current_run_id = chunk['__run__'].id
+#                     run_id_extracted = True
+#                     print(f"🔍 [LANGGRAPH-RUN-{current_run_id}] Extracted from __run__.id")
+#                 elif "__run" in chunk and hasattr(chunk["__run"], "id"):
+#                     current_run_id = chunk["__run"].id
+#                     run_id_extracted = True
+#                     print(f"🔍 [LANGGRAPH-RUN-{current_run_id}] Extracted from __run.id")
+#                 elif "agent" in chunk and chunk["agent"].get("messages"):
+#                     # Try to extract from message IDs
+#                     for msg in chunk["agent"]["messages"]:
+#                         if hasattr(msg, 'id') and msg.id.startswith('run--'):
+#                             try:
+#                                 # Extract UUID from "run--uuid-step"
+#                                 run_uuid = msg.id.split("--")[1].split("-")[0]
+#                                 current_run_id = run_uuid
+#                                 run_id_extracted = True
+#                                 print(f"🔍 [LANGGRAPH-RUN-{current_run_id}] Extracted from message ID")
+#                                 break
+#                             except Exception:
+#                                 continue
+
+#             if "agent" in chunk:
+#                 agent_message = chunk["agent"]["messages"][-1]
+#                 if agent_message.tool_calls:
+#                     yield {
+#                         "step": "Thought",
+#                         "content": f"I should use the tool {agent_message.tool_calls[0]['name']} with the arguments {json.dumps(agent_message.tool_calls[0]['args'])}.",
+#                         "trace_id": str(current_run_id),
+#                         "external_trace_id": external_trace_id
+#                     }
+#                 else:
+#                     yield {
+#                         "step": "Final Answer",
+#                         "content": agent_message.content,
+#                         "trace_id": str(current_run_id),
+#                         "external_trace_id": external_trace_id
+#                     }
+
+#             elif "action" in chunk:
+#                 action_message = chunk["action"]["messages"][-1]
+#                 yield {
+#                     "step": "Action",
+#                     "content": f"Output of tool {action_message.name}: {action_message.content}",
+#                     "trace_id": str(current_run_id),
+#                     "external_trace_id": external_trace_id
+#                 }
+
+#     except Exception as e:
+#         print(f"[LangGraph STREAM ERROR] {type(e).__name__}: {e}")
+#         yield {"step": "Error", "content": f"An error occurred: {e}", "trace_id": current_run_id, "external_trace_id": external_trace_id}
+
+def stream_agent_steps(user_msg: str, db_driver=None, external_trace_id: str = None):
+    """Streams the agent's intermediate steps, yielding a JSON object for each step with trace_id support."""
     try:
-        trace_id = str(uuid.uuid4())
+        # Assign a consistent trace_id (either from external client or new UUID)
+        current_run_id = external_trace_id or str(uuid.uuid4())
+        print(f"📍 Using run_id / trace_id: {current_run_id}")
+
         inputs = {
             "messages": [
                 SystemMessage(content="""You are a helpful cybersecurity analyst.
@@ -183,40 +279,64 @@ Always think step-by-step and show your reasoning.
                 HumanMessage(content=user_msg)
             ],
             "db_driver": db_driver,
-            "trace_id": trace_id,  # Add this
-            "user_id": "anonymous",  # Add this
-            "timestamp": datetime.now().isoformat()  # Add this
+            "user_id": "anonymous",
+            "timestamp": datetime.now().isoformat()
+        }
+
+        # Use current_run_id as both the run and thread identifier
+        config = {
+            "recursion_limit": 50,
+            "run_id": current_run_id,
+            "configurable": {"thread_id": current_run_id}
         }
 
         # Stream response from the agent
-        for chunk in chain.stream(inputs, stream_mode="updates"):
+        for chunk in chain.stream(inputs, config=config, stream_mode="updates"):
             if "agent" in chunk:
                 agent_message = chunk["agent"]["messages"][-1]
                 if agent_message.tool_calls:
                     yield {
                         "step": "Thought",
-                        "content": f"I should use the tool {agent_message.tool_calls[0]['name']} with the arguments {json.dumps(agent_message.tool_calls[0]['args'])}."
+                        "content": f"I should use the tool {agent_message.tool_calls[0]['name']} with the arguments {json.dumps(agent_message.tool_calls[0]['args'])}.",
+                        "trace_id": str(current_run_id),
+                        "external_trace_id": external_trace_id
                     }
                 else:
                     yield {
                         "step": "Final Answer",
-                        "content": agent_message.content
+                        "content": agent_message.content,
+                        "trace_id": str(current_run_id),
+                        "external_trace_id": external_trace_id
                     }
 
             elif "action" in chunk:
                 action_message = chunk["action"]["messages"][-1]
                 yield {
                     "step": "Action",
-                    "content": f"Output of tool {action_message.name}: {action_message.content}"
+                    "content": f"Output of tool {action_message.name}: {action_message.content}",
+                    "trace_id": str(current_run_id),
+                    "external_trace_id": external_trace_id
+                }
+
+            else:
+                yield {
+                    "step": "Unknown",
+                    "content": json.dumps(chunk),
+                    "trace_id": str(current_run_id),
+                    "external_trace_id": external_trace_id
                 }
 
     except Exception as e:
         print(f"[LangGraph STREAM ERROR] {type(e).__name__}: {e}")
-        yield {"step": "Error", "content": f"An error occurred: {e}"}
+        yield {
+            "step": "Error",
+            "content": f"An error occurred: {e}",
+            "trace_id": str(current_run_id),
+            "external_trace_id": external_trace_id
+        }
 
 
-# This non-streaming function can be used for simpler, non-streaming endpoints if needed.
-# It also needs to be updated to pass the driver if it's ever used with query_neo4j
+
 def ask_agent(user_msg: str, db_driver=None):
     """Invokes the agent graph and returns the final response."""
     try:
@@ -224,7 +344,6 @@ def ask_agent(user_msg: str, db_driver=None):
             SystemMessage(content="You are a helpful cybersecurity analyst."),
             HumanMessage(content=user_msg)
         ]}
-        # Pass db_driver in the config for the chain.invoke call
         final_state = chain.invoke(inputs, config={"db_driver": db_driver})
         return final_state["messages"][-1].content
     except Exception as e:
