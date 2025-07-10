@@ -8,6 +8,7 @@ from flask_cors import CORS
 from langgraph_agent import ask_agent, stream_agent_steps
 import uuid
 from datetime import datetime
+from langsmith import Client
 
 
 app = Flask(__name__)
@@ -137,16 +138,44 @@ def chat_stream():
 
     return Response(generate(), mimetype="text/event-stream")
 
-# @app.teardown_appcontext
-# def close_driver(exception):
-#     # Ensure driver exists before attempting to close
-#     if driver:
-#         try:
-#             driver.close()
-#             print("Neo4j driver closed.")
-#         except Exception as e:
-#             print(f"Error closing Neo4j driver: {e}")
+@app.route("/trace/<trace_id>")
+def get_trace(trace_id):
+    api_key = os.environ.get("LANGSMITH_API_KEY")
+    if not api_key:
+        return jsonify({"error": "LANGCHAIN_API_KEY not set"}), 500
 
+    try:
+        client = Client(api_key=api_key)
+        runs = list(client.list_runs(trace_id=trace_id))
+        steps = []
+        for run in runs:
+            # Prepare all relevant fields
+            inputs = run.inputs if run.inputs else {}
+            outputs = run.outputs if run.outputs else {}
+            # Compose a content field for easy display
+            if outputs.get("output"):
+                content = outputs["output"]
+            elif outputs:
+                content = str(outputs)
+            elif inputs:
+                content = str(inputs)
+            else:
+                content = "(no content)"
+            steps.append({
+                "step": run.name,
+                "run_type": getattr(run, "run_type", ""),
+                "inputs": inputs,
+                "outputs": outputs,
+                "content": content,
+                "trace_id": run.id,
+                "external_trace_id": trace_id,
+                "start_time": str(getattr(run, "start_time", "")),
+                "end_time": str(getattr(run, "end_time", "")),
+            })
+        return jsonify(steps)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
 if __name__ == "__main__":
     app.run(debug=True)
 
