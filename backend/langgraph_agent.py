@@ -21,16 +21,20 @@ def explain_vector(vector: str) -> str:
         "config": "Configuration issue: This is usually caused by default credentials, unsafe file permissions, or improperly configured logging and monitoring.",
     }.get(vector.lower(), "Unknown vector. Valid options are 'code', 'network', or 'config'.")
 
-# New Tool: Query Neo4j - Modified to accept db_driver directly in its call
+from datetime import datetime, date
+
 @tool
-def query_neo4j(query: str, db_driver: Any = None) -> str: # Changed type hint from GraphDatabase.driver to Any
-    """
-    Executes a Cypher query against the Neo4j database and returns the results.
-    Use this tool to retrieve information about findings, vulnerabilities, or relationships
-    from the knowledge graph.
-    The query should be a valid Cypher query string.
-    Example: MATCH (f:Finding)-[:HAS_VULNERABILITY]->(v:Vulnerability) RETURN f.id, v.title LIMIT 5
-    """
+def query_neo4j(query: str, db_driver: Any = None) -> str:
+    """Executes Cypher query and returns JSON-safe output."""
+    def serialize_value(value):
+        if isinstance(value, (datetime, date)):
+            return value.isoformat()
+        if isinstance(value, dict):
+            return {k: serialize_value(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [serialize_value(v) for v in value]
+        return value
+
     print(f"---CALLING TOOL: query_neo4j with query: {query}---")
     if db_driver is None:
         return "Error: Neo4j database driver not provided to tool."
@@ -38,11 +42,11 @@ def query_neo4j(query: str, db_driver: Any = None) -> str: # Changed type hint f
     try:
         with db_driver.session() as session:
             result = session.run(query)
-            records = [record.data() for record in result]
-            if records:
-                return json.dumps(records, indent=2)
-            else:
-                return "No results found for the query."
+            records = [serialize_value(record.data()) for record in result]
+        if records:
+            return json.dumps(records, indent=2)
+        else:
+            return "No results found for the query."
     except Exception as e:
         return f"Error executing Neo4j query: {e}"
 
@@ -134,54 +138,51 @@ chain = workflow.compile()
 def stream_agent_steps(user_msg: str, db_driver=None):
     """Streams the agent's intermediate steps, yielding a JSON object for each step."""
     try:
-        inputs = {"messages": [
-            SystemMessage(content="""You are a helpful cybersecurity analyst.
+        inputs = {
+            "messages": [
+                SystemMessage(content="""You are a helpful cybersecurity analyst.
 Your primary goal is to answer user questions about vulnerabilities and findings from a Neo4j knowledge graph.
+
+**DATABASE SCHEMA:**
+- Finding nodes have properties: id, scanner, scan_id, timestamp
+- Vulnerability nodes have properties: title, description, severity, vector, cwe_id, owasp_id
+- Asset nodes have properties: url, type, service
+- Relationships: (Finding)-[:HAS_VULNERABILITY]->(Vulnerability), (Finding)-[:AFFECTS]->(Asset)
+
+**IMPORTANT:** To get finding ID and title together, you must join Finding and Vulnerability nodes:
+MATCH (f:Finding)-[:HAS_VULNERABILITY]->(v:Vulnerability) RETURN f.id, v.title
+
 You have access to two tools:
-1. `explain_vector(vector: str)`: Explains typical root causes or attack patterns for 'code', 'network', or 'config' vulnerabilities. Use this when the user asks about these specific vulnerability types.
-2. `query_neo4j(query: str, db_driver: Any)`: Executes a Cypher query against the Neo4j knowledge graph. Use this to retrieve specific data about findings, vulnerabilities, or their relationships. The `db_driver` parameter is provided automatically.
+1. explain_vector(vector: str): Explains typical root causes or attack patterns for 'code', 'network', or 'config' vulnerabilities.
+2. query_neo4j(query: str, db_driver: Any): Executes a Cypher query against the Neo4j knowledge graph.
 
-**Always think step-by-step and show your reasoning.**
-
-**Here's how you should operate:**
-
-* **Initial Thought:** When a user asks a question, first consider if the answer can be found in the Neo4j graph.
-* **Using `query_neo4j`:**
-    * If the question requires data from the graph (e.g., specific finding details, relationships between vulnerabilities, assets, or services), your 'Thought' should be to construct a relevant Cypher query.
-    * Then, use the `query_neo4j` tool with that Cypher query.
-    * **Example Cypher Queries:**
-        * To get details of a finding by ID: `MATCH (f:Finding {id: 'F-101'}) RETURN f`
-        * To find vulnerabilities with 'CRITICAL' severity: `MATCH (v:Vulnerability) WHERE v.severity = 'CRITICAL' RETURN v.title, v.description`
-        * To find findings related to a specific asset URL: `MATCH (f:Finding)-[:HAS_ASSET]->(a:Asset) WHERE a.url CONTAINS 'shop.local' RETURN f.id, a.url`
-        * To find vulnerabilities with a specific CWE ID: `MATCH (v:Vulnerability) WHERE v.cwe_id = 'CWE-89' RETURN v.title, v.description`
-    * **After Querying:** Once you get the results from `query_neo4j`, your 'Thought' should be to interpret these results and formulate a clear answer.
-* **Using `explain_vector`:**
-    * If the user asks about general characteristics of 'code', 'network', or 'config' vulnerabilities, use the `explain_vector` tool.
-    * Your 'Thought' should be to identify the vector and then call the tool.
-* **Final Answer:** Provide a concise and helpful final answer after all necessary tool calls and interpretations are complete.
+Always think step-by-step and show your reasoning.
 """),
-            HumanMessage(content=user_msg)
-        ], "db_driver": db_driver}
-        
-        # Pass db_driver in the config for the chain.stream call
-        for chunk in chain.stream(inputs, config={"db_driver": db_driver}, stream_mode="updates"):
+                HumanMessage(content=user_msg)
+            ],
+            "db_driver": db_driver
+        }
+
+        # Stream response from the agent
+        for chunk in chain.stream(inputs, stream_mode="updates"):
             if "agent" in chunk:
                 agent_message = chunk["agent"]["messages"][-1]
                 if agent_message.tool_calls:
                     yield {
                         "step": "Thought",
-                        "content": f"I should use the tool `{agent_message.tool_calls[0]['name']}` with the arguments `{json.dumps(agent_message.tool_calls[0]['args'])}`."
+                        "content": f"I should use the tool {agent_message.tool_calls[0]['name']} with the arguments {json.dumps(agent_message.tool_calls[0]['args'])}."
                     }
                 else:
                     yield {
                         "step": "Final Answer",
                         "content": agent_message.content
                     }
+
             elif "action" in chunk:
                 action_message = chunk["action"]["messages"][-1]
                 yield {
                     "step": "Action",
-                    "content": f"Output of tool `{action_message.name}`: {action_message.content}"
+                    "content": f"Output of tool {action_message.name}: {action_message.content}"
                 }
 
     except Exception as e:
