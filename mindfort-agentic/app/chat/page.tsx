@@ -10,8 +10,9 @@ const ChatPage = () => {
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [agentSteps, setAgentSteps] = useState<
-    { step: string; content: string; trace_id?: string }[]
+    { step: string; content: string; trace_id?: string; agent?: string }[]
   >([])
+  const [agentMode, setAgentMode] = useState<"single" | "multi">("multi")
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -38,9 +39,20 @@ const ChatPage = () => {
     setLoading(true)
     setAgentSteps([])
 
-    const steps: { step: string; content: string; trace_id?: string }[] = []
+    const steps: {
+      step: string
+      content: string
+      trace_id?: string
+      agent?: string
+    }[] = []
 
-    fetch("http://localhost:5000/chat/stream", {
+    // Choose endpoint based on agent mode
+    const endpoint =
+      agentMode === "multi"
+        ? "http://localhost:5000/chat/multi-agent/stream"
+        : "http://localhost:5000/chat/stream"
+
+    fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: input }),
@@ -75,7 +87,6 @@ const ChatPage = () => {
               return
             }
             buffer += decoder.decode(value)
-            // Parse all complete data lines
             const lines = buffer.split("\n")
             let newBuffer = ""
             for (const line of lines) {
@@ -101,6 +112,40 @@ const ChatPage = () => {
       .catch(() => setLoading(false))
   }
 
+  const getAgentIcon = (agent: string) => {
+    switch (agent) {
+      case "analysis":
+        return "🔍"
+      case "correlation":
+        return "🔗"
+      case "risk":
+        return "⚠️"
+      case "recommendation":
+        return "💡"
+      case "tools":
+        return "🛠️"
+      default:
+        return "🤖"
+    }
+  }
+
+  const getAgentColor = (agent: string) => {
+    switch (agent) {
+      case "analysis":
+        return "#3b82f6"
+      case "correlation":
+        return "#8b5cf6"
+      case "risk":
+        return "#ef4444"
+      case "recommendation":
+        return "#10b981"
+      case "tools":
+        return "#f59e0b"
+      default:
+        return "#6b7280"
+    }
+  }
+
   return (
     <div
       className="min-h-screen px-6 py-10"
@@ -113,12 +158,45 @@ const ChatPage = () => {
       >
         ← Home
       </Link>
+
+      {/* Agent Mode Toggle */}
+      <div className="max-w-3xl mx-auto mb-6">
+        <div
+          className="flex items-center gap-4 p-4 rounded-lg"
+          style={{ backgroundColor: "var(--color-surface)" }}
+        >
+          <span className="text-white font-semibold">Agent Mode:</span>
+          <button
+            onClick={() => setAgentMode("single")}
+            className={`px-4 py-2 rounded-md font-medium transition ${
+              agentMode === "single"
+                ? "bg-[var(--color-accent)] text-white"
+                : "bg-[var(--color-soft)] text-gray-300"
+            }`}
+          >
+            Single Agent
+          </button>
+          <button
+            onClick={() => setAgentMode("multi")}
+            className={`px-4 py-2 rounded-md font-medium transition ${
+              agentMode === "multi"
+                ? "bg-[var(--color-accent)] text-white"
+                : "bg-[var(--color-soft)] text-gray-300"
+            }`}
+          >
+            Multi-Agent System
+          </button>
+        </div>
+      </div>
+
       <div className="max-w-3xl mx-auto">
         <h1
           className="text-3xl font-bold mb-6 tracking-wide"
           style={{ color: "var(--color-accent)" }}
         >
-          ⚡ Autonomous Security Agent
+          {agentMode === "multi"
+            ? "🤖 Multi-Agent Security System"
+            : "⚡ Autonomous Security Agent"}
         </h1>
 
         <div
@@ -192,42 +270,37 @@ const ChatPage = () => {
               }}
             >
               <div className="font-mono text-sm space-y-2">
-                {/* Pre-step animation */}
                 {agentSteps.length === 0 && (
                   <div className="flex items-center gap-2 mt-2 text-gray-400">
-                    <span className="animate-spin text-xl">💭</span>
+                    <span className="animate-spin text-xl">🤖</span>
                     <span className="animate-pulse">
-                      Agent is preparing a plan...
+                      Multi-agent system is coordinating...
                     </span>
                   </div>
                 )}
-                {/* Steps */}
+
                 {agentSteps.map((step, i) => (
-                  <div key={i}>
-                    <span
-                      style={{
-                        fontWeight: "bold",
-                        color:
-                          step.step === "Thought"
-                            ? "#eab308"
-                            : step.step === "Action"
-                              ? "#3b82f6"
-                              : step.step === "Observation"
-                                ? "#22c55e"
-                                : step.step === "Final Answer"
-                                  ? "#ef4444"
-                                  : "inherit",
-                      }}
-                    >
-                      {step.step}:
+                  <div key={i} className="flex items-start gap-2">
+                    <span className="text-lg">
+                      {getAgentIcon(step.agent || "unknown")}
                     </span>
-                    <span style={{ marginLeft: 8 }}>{step.content}</span>
+                    <div className="flex-1">
+                      <span
+                        style={{
+                          fontWeight: "bold",
+                          color: getAgentColor(step.agent || "unknown"),
+                        }}
+                      >
+                        {step.step}:
+                      </span>
+                      <span style={{ marginLeft: 8 }}>{step.content}</span>
+                    </div>
                   </div>
                 ))}
-                {/* Always show thinking animation while loading */}
+
                 <div className="flex items-center gap-2 mt-2 text-gray-400">
                   <span className="animate-bounce">⏳</span>
-                  <span className="animate-pulse">Thinking...</span>
+                  <span className="animate-pulse">Agents collaborating...</span>
                 </div>
               </div>
             </div>
