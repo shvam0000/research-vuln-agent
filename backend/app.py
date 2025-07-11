@@ -9,6 +9,7 @@ from langgraph_agent import ask_agent, stream_agent_steps
 import uuid
 from datetime import datetime
 from langsmith import Client
+from multi_agent_system import stream_multi_agent_steps
 
 
 app = Flask(__name__)
@@ -142,6 +143,20 @@ def chat_stream():
 
     def generate():
         for chunk in stream_agent_steps(user_msg, db_driver=driver, external_trace_id=request_trace_id):
+            yield f"data: {json.dumps(chunk)}\n\n"
+
+    return Response(generate(), mimetype="text/event-stream")
+
+@app.route("/chat/multi-agent/stream", methods=["POST"])
+def chat_multi_agent_stream():
+    data = request.json
+    user_msg = data.get("message")
+    request_trace_id = str(uuid.uuid4())
+    print(f"New multi-agent request with external_trace_id: {request_trace_id}")
+    print(f"---DEBUG: db_driver available: {driver is not None}---")
+
+    def generate():
+        for chunk in stream_multi_agent_steps(user_msg, db_driver=driver, external_trace_id=request_trace_id):
             yield f"data: {json.dumps(chunk)}\n\n"
 
     return Response(generate(), mimetype="text/event-stream")
