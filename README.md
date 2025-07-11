@@ -1,5 +1,9 @@
 # MindFort Agentic - Vulnerability Research Platform
 
+## Live Deployment
+
+Deployment - https://research-vuln-agent.vercel.app/
+
 ## Overview
 
 MindFort Agentic is an advanced vulnerability research platform that leverages AI agents to continuously test, discover, and analyze security vulnerabilities in real-time. This system demonstrates autonomous security agents working as a team of elite hackers to deliver comprehensive penetration testing, vulnerability analysis, and compliance insights.
@@ -298,6 +302,11 @@ research-vuln-agent/
    - Check database schema matches expected structure
    - Verify all required tools are properly registered
    - Review agent state management
+
+## Preview
+
+<img src="./readme-assets/1.png" />
+<img src="./readme-assets/2.png" />
 
 This project demonstrates advanced AI agentic capabilities in cybersecurity, showcasing how autonomous agents can revolutionize vulnerability research and security analysis workflows.
 
