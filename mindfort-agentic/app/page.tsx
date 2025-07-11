@@ -1,442 +1,259 @@
-"use client"
-
-import React, { useState, useEffect } from "react"
+import Link from "next/link"
+import React from "react"
 
 const HomePage = () => {
-  const [messages, setMessages] = useState<
-    { role: "user" | "agent"; content: string }[]
-  >([])
-  const [input, setInput] = useState("")
-  const [loading, setLoading] = useState(false)
-
-  // const [showDebug, setShowDebug] = useState(true)
-  // const sendMessage = async () => {
-  //   if (!input.trim()) return
-  //   const userMessage: { role: "user" | "agent"; content: string } = {
-  //     role: "user",
-  //     content: input,
-  //   }
-  //   setMessages([...messages, userMessage])
-  //   setLoading(true)
-
-  //   const res = await fetch("http://localhost:5000/chat", {
-  //     method: "POST",
-  //     headers: { "Content-Type": "application/json" },
-  //     body: JSON.stringify({ message: input }),
-  //   })
-
-  //   const data = await res.json()
-
-  //   setMessages((prev) => [
-  //     ...prev,
-  //     { role: "user", content: input },
-  //     { role: "agent", content: data.response },
-  //   ])
-  //   setInput("")
-  //   setLoading(false)
-  // }
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      const el = document.documentElement
-      el.scrollTop = el.scrollHeight
-    }, 100)
-
-    return () => clearTimeout(timeout)
-  }, [messages])
-
-  const sendMessage = () => {
-    if (!input.trim()) return
-
-    const userMsg: { role: "user"; content: string } = {
-      role: "user",
-      content: input,
-    }
-    setMessages((prev) => [...prev, userMsg])
-    setInput("")
-    setLoading(true)
-
-    fetch("http://localhost:5000/chat/stream", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: input }),
-    })
-      .then((response) => {
-        if (!response.body) {
-          setLoading(false)
-          return
-        }
-
-        const reader = response.body.getReader()
-        const decoder = new TextDecoder("utf-8")
-        let agentMsg = ""
-
-        function read() {
-          reader.read().then(({ done, value }) => {
-            if (done) {
-              setLoading(false)
-              return
-            }
-
-            const chunk = decoder.decode(value)
-            agentMsg += chunk
-
-            setMessages((prev) => {
-              const newMessages = [...prev]
-              if (newMessages[prev.length - 1]?.role === "agent") {
-                newMessages[prev.length - 1].content = agentMsg
-              } else {
-                newMessages.push({ role: "agent", content: agentMsg })
-              }
-              return [...newMessages]
-            })
-
-            read()
-          })
-        }
-
-        read()
-      })
-      .catch((e) => {
-        console.error("Stream error", e)
-        setLoading(false)
-      })
-  }
-
   return (
-    <div
-      className="min-h-screen px-6 py-10"
-      style={{ backgroundColor: "var(--color-bg)" }}
-    >
-      <div className="max-w-3xl mx-auto">
-        <h1
-          className="text-3xl font-bold mb-6 tracking-wide"
-          style={{ color: "var(--color-accent)" }}
-        >
-          ⚡ Autonomous Security Agent
-        </h1>
+    <div className="min-h-screen bg-[var(--color-bg)]">
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-bg)] via-[var(--color-surface)] to-[var(--color-bg)]"></div>
 
-        <div
-          className="rounded-lg shadow-lg p-6 space-y-4 max-h-[70vh] overflow-y-auto"
-          style={{
-            backgroundColor: "var(--color-surface)",
-            border: "1px solid var(--color-soft)",
-          }}
-        >
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className="p-4 rounded-xl whitespace-pre-wrap"
-              style={{
-                backgroundColor:
-                  msg.role === "user"
-                    ? "var(--color-soft)"
-                    : "rgba(255, 44, 44, 0.1)",
-                color:
-                  msg.role === "user"
-                    ? "var(--color-text)"
-                    : "var(--color-accent)",
-                border:
-                  msg.role === "agent"
-                    ? "1px solid var(--color-accent)"
-                    : undefined,
-                textAlign: msg.role === "user" ? "right" : "left",
-              }}
-            >
-              <div className="font-mono text-sm">
-                {msg.content.split("\n").map((line, j) => {
-                  let highlight = ""
-                  if (line.startsWith("Thought:"))
-                    highlight = "text-yellow-500 font-semibold"
-                  else if (line.startsWith("Action:"))
-                    highlight = "text-blue-500 font-semibold"
-                  else if (line.startsWith("Observation:"))
-                    highlight = "text-green-500 font-semibold"
-                  else if (line.startsWith("Final Answer:"))
-                    highlight = "text-red-500 font-bold"
-
-                  return (
-                    <div key={j} className={highlight}>
-                      {line}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-          {/* {showDebug && (
-            <div className="text-sm font-mono text-left mt-2 text-gray-400">
-              {messages[messages.length - 1]?.content
-                .split("\n")
-                .map((line, j) => (
-                  <div key={j} className="whitespace-pre-wrap">
-                    {line}
-                  </div>
-                ))}
-            </div>
-          )} */}
-          {loading && (
-            <div className="text-gray-400 animate-pulse">
-              Agent is thinking...
-            </div>
-          )}
+        <div className="absolute inset-0">
+          <div className="absolute top-20 left-10 w-72 h-72 bg-[var(--color-accent)] rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
+          <div className="absolute top-40 right-20 w-96 h-96 bg-[var(--color-glowing)] rounded-full mix-blend-multiply filter blur-xl opacity-10 animate-pulse delay-1000"></div>
+          <div className="absolute bottom-20 left-1/3 w-80 h-80 bg-[var(--color-accent)] rounded-full mix-blend-multiply filter blur-xl opacity-15 animate-pulse delay-2000"></div>
         </div>
 
-        <div className="mt-6 flex gap-3">
-          <input
-            className="flex-1 p-3 rounded-lg border"
-            style={{
-              backgroundColor: "var(--color-soft)",
-              borderColor: "var(--color-soft)",
-              color: "var(--color-text)",
-            }}
-            placeholder="Ask about vulnerabilities..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-          />
-          <button
-            onClick={sendMessage}
-            className="px-6 py-3 rounded-lg font-bold shadow-md transition"
-            style={{
-              backgroundColor: "var(--color-accent)",
-              color: "#fff",
-            }}
-          >
-            Send
-          </button>
+        <div className="relative z-10 px-4 py-20 mx-auto max-w-7xl sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h1 className="text-5xl font-bold tracking-tight text-white sm:text-6xl lg:text-7xl">
+              <span className="block">MindFort</span>
+              <span className="block text-[var(--color-accent)]">Agentic</span>
+            </h1>
+            <p className="max-w-2xl mx-auto mt-6 text-xl text-gray-300 sm:text-2xl">
+              Advanced vulnerability research powered by AI agents. Discover,
+              analyze, and understand security threats with intelligent
+              automation.
+            </p>
+            <div className="flex flex-col items-center justify-center gap-4 mt-10 sm:flex-row">
+              <Link
+                href="/chat"
+                className="inline-flex items-center px-8 py-4 text-lg font-semibold text-white transition-all duration-300 bg-[var(--color-accent)] rounded-lg hover:bg-[var(--color-glowing)] hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg)]"
+              >
+                Start Research
+                <svg
+                  className="w-5 h-5 ml-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 7l5 5m0 0l-5 5m5-5H6"
+                  />
+                </svg>
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
+
+      <div className="px-4 py-20 mx-auto max-w-7xl sm:px-6 lg:px-8">
+        <div className="text-center">
+          <h2 className="text-3xl font-bold text-white sm:text-4xl">
+            Powerful Research Capabilities
+          </h2>
+          <p className="max-w-2xl mx-auto mt-4 text-lg text-gray-400">
+            Leverage advanced AI agents to enhance your vulnerability research
+            workflow
+          </p>
+        </div>
+
+        <div className="grid gap-8 mt-16 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="p-6 transition-all duration-300 bg-[var(--color-surface)] rounded-xl hover:bg-[var(--color-soft)] hover:scale-105">
+            <div className="flex items-center justify-center w-12 h-12 mb-4 bg-[var(--color-accent)] rounded-lg">
+              <svg
+                className="w-6 h-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                />
+              </svg>
+            </div>
+            <h3 className="mb-2 text-xl font-semibold text-white">
+              Intelligent Analysis
+            </h3>
+            <p className="text-gray-400">
+              AI-powered agents that understand context and provide deep
+              insights into security vulnerabilities.
+            </p>
+          </div>
+
+          <div className="p-6 transition-all duration-300 bg-[var(--color-surface)] rounded-xl hover:bg-[var(--color-soft)] hover:scale-105">
+            <div className="flex items-center justify-center w-12 h-12 mb-4 bg-[var(--color-accent)] rounded-lg">
+              <svg
+                className="w-6 h-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                />
+              </svg>
+            </div>
+            <h3 className="mb-2 text-xl font-semibold text-white">
+              Real-time Processing
+            </h3>
+            <p className="text-gray-400">
+              Instant analysis and response capabilities for time-sensitive
+              security research tasks.
+            </p>
+          </div>
+
+          <div className="p-6 transition-all duration-300 bg-[var(--color-surface)] rounded-xl hover:bg-[var(--color-soft)] hover:scale-105">
+            <div className="flex items-center justify-center w-12 h-12 mb-4 bg-[var(--color-accent)] rounded-lg">
+              <svg
+                className="w-6 h-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
+              </svg>
+            </div>
+            <h3 className="mb-2 text-xl font-semibold text-white">
+              Data Visualization
+            </h3>
+            <p className="text-gray-400">
+              Interactive graphs and visual representations of vulnerability
+              relationships and patterns.
+            </p>
+          </div>
+
+          <div className="p-6 transition-all duration-300 bg-[var(--color-surface)] rounded-xl hover:bg-[var(--color-soft)] hover:scale-105">
+            <div className="flex items-center justify-center w-12 h-12 mb-4 bg-[var(--color-accent)] rounded-lg">
+              <svg
+                className="w-6 h-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                />
+              </svg>
+            </div>
+            <h3 className="mb-2 text-xl font-semibold text-white">
+              Secure Environment
+            </h3>
+            <p className="text-gray-400">
+              Built with security in mind, ensuring your research data and
+              findings remain protected.
+            </p>
+          </div>
+
+          <div className="p-6 transition-all duration-300 bg-[var(--color-surface)] rounded-xl hover:bg-[var(--color-soft)] hover:scale-105">
+            <div className="flex items-center justify-center w-12 h-12 mb-4 bg-[var(--color-accent)] rounded-lg">
+              <svg
+                className="w-6 h-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                />
+              </svg>
+            </div>
+            <h3 className="mb-2 text-xl font-semibold text-white">
+              Interactive Chat
+            </h3>
+            <p className="text-gray-400">
+              Natural language interface for querying vulnerabilities and
+              getting detailed explanations.
+            </p>
+          </div>
+
+          <div className="p-6 transition-all duration-300 bg-[var(--color-surface)] rounded-xl hover:bg-[var(--color-soft)] hover:scale-105">
+            <div className="flex items-center justify-center w-12 h-12 mb-4 bg-[var(--color-accent)] rounded-lg">
+              <svg
+                className="w-6 h-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+                />
+              </svg>
+            </div>
+            <h3 className="mb-2 text-xl font-semibold text-white">
+              Knowledge Graph
+            </h3>
+            <p className="text-gray-400">
+              Connected data model that reveals relationships between
+              vulnerabilities and attack vectors.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 py-20 mx-auto max-w-7xl sm:px-6 lg:px-8">
+        <div className="p-8 text-center bg-[var(--color-surface)] rounded-2xl">
+          <h2 className="text-3xl font-bold text-white sm:text-4xl">
+            Ready to Start Your Research?
+          </h2>
+          <p className="max-w-2xl mx-auto mt-4 text-lg text-gray-400">
+            Join the next generation of vulnerability research with AI-powered
+            insights and analysis.
+          </p>
+          <Link
+            href="/chat"
+            className="inline-flex items-center px-8 py-4 mt-8 text-lg font-semibold text-white transition-all duration-300 bg-[var(--color-accent)] rounded-lg hover:bg-[var(--color-glowing)] hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:ring-offset-2 focus:ring-offset-[var(--color-surface)]"
+          >
+            Launch Research Agent
+            <svg
+              className="w-5 h-5 ml-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 7l5 5m0 0l-5 5m5-5H6"
+              />
+            </svg>
+          </Link>
+        </div>
+      </div>
+
+      <footer className="px-4 py-12 mx-auto max-w-7xl sm:px-6 lg:px-8">
+        <div className="text-center">
+          <p className="text-gray-500">
+            © 2025 MindFort Agentic. Advanced vulnerability research powered by
+            AI.
+          </p>
+        </div>
+      </footer>
     </div>
   )
 }
 
 export default HomePage
-
-// "use client"
-
-// import React, { useState, useEffect, useRef } from "react"
-
-// // Define a type for the structured data we expect from the stream
-// interface AgentStep {
-//   step: "Thought" | "Action" | "Final Answer" | "Error"
-//   content: string
-// }
-
-// // Define the message structure for our chat state
-// interface Message {
-//   role: "user" | "agent"
-//   content: string
-// }
-
-// const HomePage = () => {
-//   const [messages, setMessages] = useState<Message[]>([])
-//   const [input, setInput] = useState("")
-//   const [isLoading, setIsLoading] = useState(false)
-
-//   // A ref to the container div of the messages to handle auto-scrolling
-//   const messagesEndRef = useRef<HTMLDivElement>(null)
-
-//   // This effect will automatically scroll to the bottom of the message list
-//   // whenever a new message is added.
-//   useEffect(() => {
-//     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-//   }, [messages])
-
-//   const sendMessage = async () => {
-//     if (!input.trim()) return
-
-//     // 1. Add the user's message to the state immediately
-//     const userMessage: Message = { role: "user", content: input }
-//     // 2. Add a placeholder for the agent's response. We will stream content into this.
-//     const agentPlaceholder: Message = { role: "agent", content: "" }
-//     setMessages((prevMessages) => [
-//       ...prevMessages,
-//       userMessage,
-//       agentPlaceholder,
-//     ])
-
-//     setInput("")
-//     setIsLoading(true)
-
-//     try {
-//       // 3. Make the POST request to the streaming endpoint
-//       const response = await fetch("http://localhost:5000/chat/stream", {
-//         method: "POST",
-//         headers: { "Content-Type": "application/json" },
-//         body: JSON.stringify({ message: input }),
-//       })
-
-//       if (!response.body) {
-//         throw new Error("Response body is null")
-//       }
-
-//       // 4. Get the reader and decoder to process the stream
-//       const reader = response.body.getReader()
-//       const decoder = new TextDecoder("utf-8")
-//       let fullAgentResponse = ""
-
-//       // 5. Define the function to read chunks from the stream
-//       const readStream = async () => {
-//         const { done, value } = await reader.read()
-
-//         if (done) {
-//           setIsLoading(false)
-//           return
-//         }
-
-//         // The raw chunk might contain multiple "data: {...}" events.
-//         const chunk = decoder.decode(value, { stream: true })
-
-//         // Process each event in the chunk
-//         const eventLines = chunk
-//           .split("\n\n")
-//           .filter((line) => line.startsWith("data: "))
-
-//         for (const line of eventLines) {
-//           const jsonString = line.substring(5) // Remove "data: " prefix
-//           if (jsonString) {
-//             try {
-//               const parsedStep: AgentStep = JSON.parse(jsonString)
-
-//               // Append the formatted step to the full response string
-//               fullAgentResponse += `${parsedStep.step}: ${parsedStep.content}\n`
-
-//               // Update the last message (the agent's placeholder) with the new content
-//               setMessages((prev) => {
-//                 const newMessages = [...prev]
-//                 newMessages[newMessages.length - 1].content = fullAgentResponse
-//                 return newMessages
-//               })
-//             } catch (e) {
-//               console.error("Failed to parse stream data:", jsonString, e)
-//             }
-//           }
-//         }
-
-//         // Continue reading the stream
-//         await readStream()
-//       }
-
-//       // Start reading the stream
-//       await readStream()
-//     } catch (e) {
-//       console.error("Fetch stream error", e)
-//       setMessages((prev) => {
-//         const newMessages = [...prev]
-//         newMessages[newMessages.length - 1].content =
-//           "Sorry, I ran into an error. Please check the console."
-//         return newMessages
-//       })
-//       setIsLoading(false)
-//     }
-//   }
-
-//   return (
-//     <div
-//       className="min-h-screen px-6 py-10 flex flex-col"
-//       style={{ backgroundColor: "var(--color-bg)" }}
-//     >
-//       <div className="max-w-3xl mx-auto w-full flex flex-col flex-1">
-//         <h1
-//           className="text-3xl font-bold mb-6 tracking-wide"
-//           style={{ color: "var(--color-accent)" }}
-//         >
-//           ⚡ Autonomous Security Agent
-//         </h1>
-
-//         <div
-//           className="flex-1 rounded-lg shadow-lg p-6 space-y-4 overflow-y-auto mb-6"
-//           style={{
-//             backgroundColor: "var(--color-surface)",
-//             border: "1px solid var(--color-soft)",
-//           }}
-//         >
-//           {messages.map((msg, i) => (
-//             <div
-//               key={i}
-//               className="p-4 rounded-xl whitespace-pre-wrap"
-//               style={{
-//                 backgroundColor:
-//                   msg.role === "user"
-//                     ? "var(--color-soft)"
-//                     : "rgba(255, 44, 44, 0.1)", // Agent messages now have a distinct background
-//                 color:
-//                   msg.role === "user"
-//                     ? "var(--color-text)"
-//                     : "var(--color-accent)", // Agent messages now have a distinct text color
-//                 border:
-//                   msg.role === "agent"
-//                     ? "1px solid var(--color-accent)"
-//                     : "none", // Agent messages now have a distinct border
-//                 textAlign: msg.role === "user" ? "right" : "left",
-//                 alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
-//                 maxWidth: "90%",
-//               }}
-//             >
-//               <div className="font-mono text-sm">
-//                 {msg.content.split("\n").map((line, j) => {
-//                   let highlight = ""
-//                   if (line.startsWith("Thought:")) highlight = "text-yellow-400"
-//                   else if (line.startsWith("Action:"))
-//                     highlight = "text-blue-400"
-//                   else if (line.startsWith("Final Answer:"))
-//                     highlight = "text-green-400 font-bold"
-//                   else if (line.startsWith("Error:"))
-//                     highlight = "text-red-500 font-bold"
-
-//                   return (
-//                     <div key={j} className={highlight}>
-//                       {line}
-//                     </div>
-//                   )
-//                 })}
-//               </div>
-//             </div>
-//           ))}
-//           {isLoading && (
-//             <div className="text-gray-400 animate-pulse text-left">
-//               Agent is thinking...
-//             </div>
-//           )}
-//           {/* This empty div is the target for our auto-scrolling ref */}
-//           <div ref={messagesEndRef} />
-//         </div>
-
-//         <div className="mt-auto flex gap-3">
-//           <input
-//             className="flex-1 p-3 rounded-lg border"
-//             style={{
-//               backgroundColor: "var(--color-soft)",
-//               borderColor: "var(--color-soft)",
-//               color: "var(--color-text)",
-//             }}
-//             placeholder="Ask about vulnerabilities..."
-//             value={input}
-//             onChange={(e) => setInput(e.target.value)}
-//             onKeyDown={(e) => {
-//               if (e.key === "Enter" && !isLoading) {
-//                 e.preventDefault()
-//                 sendMessage()
-//               }
-//             }}
-//             disabled={isLoading}
-//           />
-//           <button
-//             onClick={sendMessage}
-//             disabled={isLoading}
-//             className="px-6 py-3 rounded-lg font-bold shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed"
-//             style={{
-//               backgroundColor: "var(--color-accent)",
-//               color: "#fff",
-//             }}
-//           >
-//             Send
-//           </button>
-//         </div>
-//       </div>
-//     </div>
-//   )
-// }
-
-// export default HomePage
