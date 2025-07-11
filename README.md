@@ -307,6 +307,8 @@ research-vuln-agent/
 
 <img src="./readme-assets/1.png" />
 <img src="./readme-assets/2.png" />
+<img src="./readme-assets/3.png" />
+<img src="./readme-assets/4.png" />
 
 This project demonstrates advanced AI agentic capabilities in cybersecurity, showcasing how autonomous agents can revolutionize vulnerability research and security analysis workflows.
 
