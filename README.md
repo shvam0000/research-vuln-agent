@@ -72,17 +72,6 @@ The platform features a sophisticated multi-agent architecture with specialized 
 - **Temporal Analysis**: Pattern recognition across time-based vulnerability data
 - **Cross-Reference Analysis**: Links vulnerabilities across different scanners and assets
 
-## 📊 Sample Data
-
-The system processes comprehensive vulnerability findings including:
-
-- **OWASP ZAP**: Web application vulnerabilities (SQL injection, XSS, CORS issues)
-- **BurpSuite**: Manual testing findings (session management, access control)
-- **Semgrep**: Code analysis (weak cryptography, insecure practices)
-- **Trivy**: Container image vulnerabilities (CVE analysis, outdated dependencies)
-- **Snyk**: Software composition analysis (dependency vulnerabilities)
-- **Custom Probes**: Cloud configuration and audit logging issues
-
 ## 🛠️ Technical Implementation
 
 ### Knowledge Graph Schema
@@ -281,27 +270,6 @@ research-vuln-agent/
 │   └── package.json          # Node.js dependencies
 └── README.md                 # This file
 ```
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **Neo4j Connection Errors**
-
-   - Verify environment variables are set correctly
-   - Check Neo4j AuraDB instance is running
-   - Ensure network connectivity
-
-2. **LiteLLM API Errors**
-
-   - Verify API key and base URL
-   - Check model availability
-   - Ensure proper authentication
-
-3. **Agent Execution Issues**
-   - Check database schema matches expected structure
-   - Verify all required tools are properly registered
-   - Review agent state management
 
 ## Preview
 
