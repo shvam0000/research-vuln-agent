@@ -59,15 +59,15 @@ def query_neo4j(query: str, db_driver: Any = None) -> str:
             records = [serialize_value(record.data()) for record in result]
         if records:
             duration = time.time() - start_time
-            print(f"✅ [QUERY-{query_id}] Completed in {duration:.3f}s")
+            print(f"[QUERY-{query_id}] Completed in {duration:.3f}s")
             return json.dumps(records, indent=2)
         else:
             duration = time.time() - start_time
-            print(f"✅ [QUERY-{query_id}] No results in {duration:.3f}s")
+            print(f"[QUERY-{query_id}] No results in {duration:.3f}s")
             return "No results found for the query."
     except Exception as e:
         duration = time.time() - start_time
-        print(f"❌ [QUERY-{query_id}] Error in 0.065s: {e}") # Corrected duration here based on your log
+        print(f"[QUERY-{query_id}] Error in 0.065s: {e}") # Corrected duration here based on your log
         return f"Error executing Neo4j query: {e}"
 
 # --- Agent State ---
@@ -151,110 +151,12 @@ workflow.add_conditional_edges(
 workflow.add_edge("action", "agent")
 chain = workflow.compile()
 
-# --- Public Functions ---
-# def stream_agent_steps(user_msg: str, db_driver=None, external_trace_id: str = None):
-#     """Streams the agent's intermediate steps, yielding a JSON object for each step."""
-#     try:
-#         inputs = {
-#             "messages": [
-#                 SystemMessage(content="""You are a helpful cybersecurity analyst.
-# Your primary goal is to answer user questions about vulnerabilities and findings from a Neo4j knowledge graph.
-
-# **DATABASE SCHEMA:**
-# - Finding nodes have properties: id, scanner, scan_id, timestamp
-# - Vulnerability nodes have properties: title, description, severity, vector, cwe_id, owasp_id
-# - Asset nodes have properties: url, type, service
-# - Relationships: (Finding)-[:HAS_VULNERABILITY]->(Vulnerability), (Finding)-[:AFFECTS]->(Asset)
-
-# **IMPORTANT:** To get finding ID and title together, you must join Finding and Vulnerability nodes:
-# MATCH (f:Finding)-[:HAS_VULNERABILITY]->(v:Vulnerability) RETURN f.id, v.title
-
-# You have access to two tools:
-# 1. explain_vector(vector: str): Explains typical root causes or attack patterns for 'code', 'network', or 'config' vulnerabilities.
-# 2. query_neo4j(query: str, db_driver: Any): Executes a Cypher query against the Neo4j knowledge graph.
-
-# Always think step-by-step and show your reasoning.
-# """),
-#                 HumanMessage(content=user_msg)
-#             ],
-#             "db_driver": db_driver,
-#             "user_id": "anonymous",
-#             "timestamp": datetime.now().isoformat()
-#         }
-
-#         # Method 1: Use external_trace_id as the thread_id for consistent run tracking
-#         config = {"recursion_limit": 50}
-#         if external_trace_id:
-#             config["configurable"] = {"thread_id": external_trace_id}
-#             print(f"🔍 [EXTERNAL-TRACE-{external_trace_id}] Using external trace ID as thread_id")
-
-#         # Method 2: Get the run ID from the first chunk
-#         current_run_id = external_trace_id or "unknown-trace"
-#         run_id_extracted = False
-
-#         # Stream response from the agent
-#         for chunk in chain.stream(inputs, config, stream_mode="updates"):
-#             # Extract run ID from the first chunk that contains it
-#             if not run_id_extracted:
-#                 # Try multiple ways to get the run ID
-#                 if hasattr(chunk, '__run__') and hasattr(chunk['__run__'], 'id'):
-#                     current_run_id = chunk['__run__'].id
-#                     run_id_extracted = True
-#                     print(f"🔍 [LANGGRAPH-RUN-{current_run_id}] Extracted from __run__.id")
-#                 elif "__run" in chunk and hasattr(chunk["__run"], "id"):
-#                     current_run_id = chunk["__run"].id
-#                     run_id_extracted = True
-#                     print(f"🔍 [LANGGRAPH-RUN-{current_run_id}] Extracted from __run.id")
-#                 elif "agent" in chunk and chunk["agent"].get("messages"):
-#                     # Try to extract from message IDs
-#                     for msg in chunk["agent"]["messages"]:
-#                         if hasattr(msg, 'id') and msg.id.startswith('run--'):
-#                             try:
-#                                 # Extract UUID from "run--uuid-step"
-#                                 run_uuid = msg.id.split("--")[1].split("-")[0]
-#                                 current_run_id = run_uuid
-#                                 run_id_extracted = True
-#                                 print(f"🔍 [LANGGRAPH-RUN-{current_run_id}] Extracted from message ID")
-#                                 break
-#                             except Exception:
-#                                 continue
-
-#             if "agent" in chunk:
-#                 agent_message = chunk["agent"]["messages"][-1]
-#                 if agent_message.tool_calls:
-#                     yield {
-#                         "step": "Thought",
-#                         "content": f"I should use the tool {agent_message.tool_calls[0]['name']} with the arguments {json.dumps(agent_message.tool_calls[0]['args'])}.",
-#                         "trace_id": str(current_run_id),
-#                         "external_trace_id": external_trace_id
-#                     }
-#                 else:
-#                     yield {
-#                         "step": "Final Answer",
-#                         "content": agent_message.content,
-#                         "trace_id": str(current_run_id),
-#                         "external_trace_id": external_trace_id
-#                     }
-
-#             elif "action" in chunk:
-#                 action_message = chunk["action"]["messages"][-1]
-#                 yield {
-#                     "step": "Action",
-#                     "content": f"Output of tool {action_message.name}: {action_message.content}",
-#                     "trace_id": str(current_run_id),
-#                     "external_trace_id": external_trace_id
-#                 }
-
-#     except Exception as e:
-#         print(f"[LangGraph STREAM ERROR] {type(e).__name__}: {e}")
-#         yield {"step": "Error", "content": f"An error occurred: {e}", "trace_id": current_run_id, "external_trace_id": external_trace_id}
 
 def stream_agent_steps(user_msg: str, db_driver=None, external_trace_id: str = None):
     """Streams the agent's intermediate steps, yielding a JSON object for each step with trace_id support."""
     try:
-        # Assign a consistent trace_id (either from external client or new UUID)
         current_run_id = external_trace_id or str(uuid.uuid4())
-        print(f"📍 Using run_id / trace_id: {current_run_id}")
+        print(f"Using run_id / trace_id: {current_run_id}")
 
         inputs = {
             "messages": [

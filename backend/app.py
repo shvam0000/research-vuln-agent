@@ -12,8 +12,8 @@ from langsmith import Client
 
 
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:3000"])
-load_dotenv() # This must be called early to load environment variables
+CORS(app)
+load_dotenv() 
 print("DEBUG: NEO4J_URI =", os.getenv("NEO4J_URI"))
 print("DEBUG: NEO4J_USER =", os.getenv("NEO4J_USER"))
 print("DEBUG: NEO4J_PASSWORD =", os.getenv("NEO4J_PASSWORD"))
@@ -23,7 +23,7 @@ LITELLM_URL = os.getenv("LITELLM_BASE_URL").rstrip("/")
 LITELLM_KEY = os.getenv("LITELLM_API_KEY")
 MODEL = "gpt-4o"
 
-driver = None # Initialize to None
+driver = None 
 try:
     NEO4J_URI = os.getenv("NEO4J_URI")
     NEO4J_USER = os.getenv("NEO4J_USER")
@@ -33,12 +33,11 @@ try:
         print("WARNING: Neo4j environment variables (NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD) not fully set. Database connection will likely fail.")
     else:
         driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
-        # Attempt to verify connectivity, this will raise an exception if connection fails
         driver.verify_connectivity()
         print("Neo4j driver initialized and connected successfully!")
 except Exception as e:
     print(f"CRITICAL ERROR: Failed to initialize Neo4j driver: {e}")
-    driver = None # Ensure it's None if connection fails
+    driver = None 
 
 def call_agent(prompt: str) -> str:
     payload = {
@@ -58,7 +57,6 @@ def call_agent(prompt: str) -> str:
     return r.json()["choices"][0]["message"]["content"]
 
 def enrich_graph():
-    # Only attempt to enrich if the driver is successfully initialized
     if driver is None:
         print("Cannot enrich graph: Neo4j driver is not available.")
         return
@@ -117,7 +115,6 @@ def chat():
         return jsonify({"error": "Message is required"}), 400
 
     try:
-        # Pass the driver to the ask_agent function
         reply = ask_agent(user_msg, db_driver=driver)
         print(f"Agent reply: {reply}")
         return jsonify({"response": reply})
@@ -149,10 +146,8 @@ def get_trace(trace_id):
         runs = list(client.list_runs(trace_id=trace_id))
         steps = []
         for run in runs:
-            # Prepare all relevant fields
             inputs = run.inputs if run.inputs else {}
             outputs = run.outputs if run.outputs else {}
-            # Compose a content field for easy display
             if outputs.get("output"):
                 content = outputs["output"]
             elif outputs:

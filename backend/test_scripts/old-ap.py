@@ -111,23 +111,6 @@ def chat():
             for r in result
         ])
 
-        # prompt = f"""
-        #         You are a security analyst agent.
-
-        #         For the following user query and context, respond in the following format:
-
-        #         Thought: what you are considering  
-        #         Action: what reasoning you're applying  
-        #         Observation: result of that reasoning  
-        #         ...repeat as needed...  
-        #         Final Answer: your final recommendation or answer
-
-        #         Context:
-        #         {context}
-
-        #         User query:
-        #         {user_msg}
-        #         """
 
         prompt = f"""
                 You are a cybersecurity expert analyzing vulnerabilities.
@@ -153,49 +136,6 @@ def chat():
             return jsonify({"error": str(e)}), 500
 
 
-# @app.route("/chat", methods=["POST"])
-# def chat():
-#     data = request.get_json()
-#     user_msg = data.get("message")
-#     if not user_msg:
-#         return jsonify({"error": "Message is required"}), 400
-
-#     with driver.session() as session:
-#         result = session.run(
-#             """
-#             MATCH (f:Finding)-[:HAS_VULNERABILITY]->(v:Vulnerability)
-#             WHERE v.title CONTAINS $term OR v.description CONTAINS $term
-#             RETURN f.id AS id, v.title AS title, v.severity AS severity, v.description AS description
-#             LIMIT 5
-#             """,
-#             term=user_msg,
-#         )
-
-#         context = "\n".join([
-#             f"[{r['severity']}] {r['title']} - {r['description']}"
-#             for r in result
-#         ])
-
-#         prompt = f"""
-#         You are a cybersecurity expert analyzing vulnerabilities.
-
-#         Thought: (your reasoning)
-#         Action: (next step)
-#         Observation: (if any)
-#         Final Answer: (your final answer)
-
-#         Context:
-#         {context}
-
-#         User query:
-#         {user_msg}
-#         """
-
-#         try:
-#             reply = ask_agent(prompt)
-#             return jsonify({ "response": reply })
-#         except Exception as e:
-#             return jsonify({"error": str(e)}), 500
         
 @app.route("/chat/stream", methods=["POST"])
 def chat_stream():
@@ -233,27 +173,6 @@ def chat_stream():
 
     return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
 
-
-# @app.route("/chat/stream", methods=["POST"])
-# def chat_stream():
-#     data = request.get_json()
-#     user_msg = data.get("message")
-#     if not user_msg:
-#         return {"error": "Message is required"}, 400
-
-#     def event_stream():
-#         """Generator function to stream agent steps."""
-#         try:
-#             # Pass the Neo4j driver to the stream_agent_steps function
-#             for step in stream_agent_steps(user_msg, db_driver=driver):
-#                 # Format as a Server-Sent Event (SSE)
-#                 yield f"data: {json.dumps(step)}\n\n"
-#         except Exception as e:
-#             error_message = {"step": "Error", "content": str(e)}
-#             yield f"data: {json.dumps(error_message)}\n\n"
-
-#     # Return a streaming response
-#     return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
 
 @app.teardown_appcontext
 def close_driver(exception):
