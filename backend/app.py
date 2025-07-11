@@ -98,6 +98,17 @@ def enrich_graph():
                 print(f"Error processing {id1} and {id2}: {e}")
                 time.sleep(1)
 
+def serialize_value(value):
+    if hasattr(value, "iso_format"):
+        return value.iso_format()
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    if isinstance(value, (list, tuple)):
+        return [serialize_value(v) for v in value]
+    if isinstance(value, dict):
+        return {k: serialize_value(v) for k, v in value.items()}
+    return value
+
 @app.route("/")
 def home():
     return jsonify({"message": "Hello, Flask!"})
@@ -169,6 +180,62 @@ def get_trace(trace_id):
             })
         return jsonify(steps)
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/graph")
+def get_graph():
+    if driver is None:
+        return jsonify({"error": "Neo4j driver not available"}), 500
+
+    try:
+        with driver.session() as session:
+            result = session.run("""
+                MATCH (n)
+                OPTIONAL MATCH (n)-[r]->(m)
+                RETURN n, r, m
+                LIMIT 100
+            """)
+            nodes = {}
+            links = []
+            for record in result:
+                n = record["n"]
+                m = record["m"]
+                r = record["r"]
+
+                def get_first_label(node):
+                    return list(node.labels)[0] if node and node.labels else "Node"
+
+                if n:
+                    node_id = str(n.id)
+                    if node_id not in nodes:
+                        nodes[node_id] = {
+                            "id": node_id,
+                            "label": n.get("title") or n.get("id") or get_first_label(n),
+                            "group": get_first_label(n),
+                            "properties": {k: serialize_value(v) for k, v in dict(n).items()}
+                        }
+                if m:
+                    node_id = str(m.id)
+                    if node_id not in nodes:
+                        nodes[node_id] = {
+                            "id": node_id,
+                            "label": m.get("title") or m.get("id") or get_first_label(m),
+                            "group": get_first_label(m),
+                            "properties": {k: serialize_value(v) for k, v in dict(m).items()}
+                        }
+                if r and n and m:
+                    links.append({
+                        "source": str(n.id),
+                        "target": str(m.id),
+                        "type": r.type,
+                        "properties": {k: serialize_value(v) for k, v in dict(r).items()}
+                    })
+            return jsonify({
+                "nodes": list(nodes.values()),
+                "links": links
+            })
+    except Exception as e:
+        print("Error in /graph:", e)
         return jsonify({"error": str(e)}), 500
     
 if __name__ == "__main__":
