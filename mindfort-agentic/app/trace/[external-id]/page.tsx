@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import React, { useEffect, useState } from "react"
@@ -26,15 +25,35 @@ function extractLLMContent(raw: unknown): string | undefined {
   }
 
   // Step 2: outputs.generations
-  if (typeof content === "object" && content !== null && "outputs" in content) {
-    const outputs = (content as any).outputs
+  if (
+    typeof content === "object" &&
+    content !== null &&
+    "outputs" in content &&
+    typeof (content as { outputs: unknown }).outputs === "object" &&
+    (content as { outputs: unknown }).outputs !== null
+  ) {
+    const outputs = (content as { outputs: Record<string, unknown> }).outputs
 
     if (
-      outputs.generations &&
-      Array.isArray(outputs.generations) &&
-      Array.isArray(outputs.generations[0])
+      outputs &&
+      "generations" in outputs &&
+      Array.isArray((outputs as { generations?: unknown[] }).generations) &&
+      Array.isArray(
+        ((outputs as { generations: unknown[] }).generations as unknown[])[0]
+      )
     ) {
-      const gen = outputs.generations[0][0]
+      const generations = (outputs as { generations: unknown[] })
+        .generations as unknown[]
+      const firstGenArr = generations[0] as unknown[]
+      const gen =
+        firstGenArr &&
+        typeof firstGenArr[0] === "object" &&
+        firstGenArr[0] !== null
+          ? (firstGenArr[0] as {
+              text?: string
+              message?: { content?: string }
+            })
+          : undefined
       if (gen?.text) return gen.text
       if (gen?.message?.content) return gen.message.content
     }
@@ -51,8 +70,13 @@ function extractLLMContent(raw: unknown): string | undefined {
   }
 
   // Step 3: top-level messages
-  if ("messages" in (content as any)) {
-    const messages = (content as any).messages
+  if (
+    typeof content === "object" &&
+    content !== null &&
+    "messages" in content &&
+    Array.isArray((content as { messages?: unknown }).messages)
+  ) {
+    const messages = (content as { messages?: unknown }).messages
     if (Array.isArray(messages)) {
       for (const msg of messages) {
         if (msg?.content) return msg.content
@@ -61,8 +85,13 @@ function extractLLMContent(raw: unknown): string | undefined {
   }
 
   // Step 4: top-level generations
-  if ("generations" in (content as any)) {
-    const gens = (content as any).generations
+  if (
+    typeof content === "object" &&
+    content !== null &&
+    "generations" in content &&
+    Array.isArray((content as { generations?: unknown }).generations)
+  ) {
+    const gens = (content as { generations?: unknown }).generations
     if (Array.isArray(gens) && Array.isArray(gens[0])) {
       const gen = gens[0][0]
       if (gen?.text) return gen.text
@@ -83,12 +112,22 @@ const TracePage: React.FC = () => {
       const res = await fetch(`http://localhost:5000/trace/${external_id}`)
       const data = await res.json()
 
-      const parsedSteps: Step[] = data.map((item: any) => ({
-        content: item,
-        step: item.step || item.run_type || "Message",
-        trace_id: item.trace_id,
-        external_trace_id: item.external_trace_id,
-      }))
+      const parsedSteps: Step[] = data.map(
+        (item: {
+          step?: string
+          run_type?: string
+          inputs?: Record<string, unknown>
+          outputs?: Record<string, unknown>
+          content?: unknown
+          trace_id?: string
+          external_trace_id?: string
+        }) => ({
+          content: item,
+          step: item.step || item.run_type || "Message",
+          trace_id: item.trace_id,
+          external_trace_id: item.external_trace_id,
+        })
+      )
 
       setSteps(parsedSteps)
     }
