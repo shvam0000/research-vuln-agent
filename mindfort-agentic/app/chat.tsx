@@ -39,7 +39,7 @@ const ChatPage = () => {
 
     const steps: { step: string; content: string; trace_id?: string }[] = []
 
-    fetch("http://localhost:5000/chat/stream", {
+    fetch("https://mindfort-a36d7c2f9939.herokuapp.com/chat/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: input }),

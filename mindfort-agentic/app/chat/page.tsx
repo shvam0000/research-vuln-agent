@@ -49,8 +49,8 @@ const ChatPage = () => {
     // Choose endpoint based on agent mode
     const endpoint =
       agentMode === "multi"
-        ? "http://localhost:5000/chat/multi-agent/stream"
-        : "http://localhost:5000/chat/stream"
+        ? "https://mindfort-a36d7c2f9939.herokuapp.com/chat/multi-agent/stream"
+        : "https://mindfort-a36d7c2f9939.herokuapp.com/chat/stream"
 
     fetch(endpoint, {
       method: "POST",

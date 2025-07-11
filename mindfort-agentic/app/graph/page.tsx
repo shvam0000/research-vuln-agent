@@ -35,7 +35,7 @@ const CytoscapeGraphPage = () => {
   })
 
   useEffect(() => {
-    fetch("http://localhost:5000/graph")
+    fetch("https://mindfort-a36d7c2f9939.herokuapp.com/graph")
       .then((res) => res.json())
       .then((data) => {
         setGraphData(data)

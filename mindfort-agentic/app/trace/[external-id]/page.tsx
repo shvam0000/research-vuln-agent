@@ -109,7 +109,7 @@ const TracePage: React.FC = () => {
 
   useEffect(() => {
     const fetchTrace = async () => {
-      const res = await fetch(`http://localhost:5000/trace/${external_id}`)
+      const res = await fetch(`https://mindfort-a36d7c2f9939.herokuapp.com/trace/${external_id}`)
       const data = await res.json()
 
       const parsedSteps: Step[] = data.map(
