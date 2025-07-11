@@ -249,7 +249,21 @@ def analysis_agent(state: MultiAgentState):
 3. Provide detailed technical analysis
 4. Focus on understanding the root cause and attack vectors
 
-Use your tools to gather comprehensive information about vulnerabilities."""
+**DATABASE SCHEMA:**
+- Finding nodes have properties: id, scanner, scan_id, timestamp
+- Vulnerability nodes have properties: title, description, severity, vector, cwe_id, owasp_id
+- Asset nodes have properties: url, type, service
+- Relationships: (Finding)-[:HAS_VULNERABILITY]->(Vulnerability), (Finding)-[:AFFECTS]->(Asset)
+
+**IMPORTANT:** To get finding ID and title together, you must join Finding and Vulnerability nodes:
+MATCH (f:Finding)-[:HAS_VULNERABILITY]->(v:Vulnerability) RETURN f.id, v.title
+
+You have access to these tools:
+1. analyze_vulnerability_severity(finding_id: str): Analyzes the severity and impact of a specific vulnerability finding
+2. find_similar_vulnerabilities(cwe_id: str): Finds vulnerabilities with the same CWE ID to identify patterns
+3. query_neo4j(query: str): Executes a Cypher query against the Neo4j knowledge graph
+
+For general database queries, always use query_neo4j first to gather information."""
     
     messages = [SystemMessage(content=system_prompt)] + state["messages"]
     response = analysis_llm.invoke(messages)
@@ -264,7 +278,18 @@ def correlation_agent(state: MultiAgentState):
 3. Connect related vulnerabilities across different assets
 4. Find potential cascading effects
 
-Use your tools to discover relationships and patterns."""
+**DATABASE SCHEMA:**
+- Finding nodes have properties: id, scanner, scan_id, timestamp
+- Vulnerability nodes have properties: title, description, severity, vector, cwe_id, owasp_id
+- Asset nodes have properties: url, type, service
+- Relationships: (Finding)-[:HAS_VULNERABILITY]->(Vulnerability), (Finding)-[:AFFECTS]->(Asset)
+
+You have access to these tools:
+1. find_attack_chains(finding_id: str): Identifies potential attack chains starting from a specific finding
+2. analyze_temporal_patterns(): Analyzes temporal patterns in vulnerability discoveries
+3. query_neo4j(query: str): Executes a Cypher query against the Neo4j knowledge graph
+
+For general database queries, always use query_neo4j first to gather information."""
     
     messages = [SystemMessage(content=system_prompt)] + state["messages"]
     response = correlation_llm.invoke(messages)
@@ -279,7 +304,18 @@ def risk_assessment_agent(state: MultiAgentState):
 3. Evaluate business impact
 4. Prioritize findings based on risk
 
-Use your tools to quantify and assess risks."""
+**DATABASE SCHEMA:**
+- Finding nodes have properties: id, scanner, scan_id, timestamp
+- Vulnerability nodes have properties: title, description, severity, vector, cwe_id, owasp_id
+- Asset nodes have properties: url, type, service
+- Relationships: (Finding)-[:HAS_VULNERABILITY]->(Vulnerability), (Finding)-[:AFFECTS]->(Asset)
+
+You have access to these tools:
+1. calculate_risk_score(finding_id: str): Calculates a risk score for a specific finding based on multiple factors
+2. assess_asset_criticality(asset_url: str): Assesses the criticality of an asset based on vulnerability exposure
+3. query_neo4j(query: str): Executes a Cypher query against the Neo4j knowledge graph
+
+For general database queries, always use query_neo4j first to gather information."""
     
     messages = [SystemMessage(content=system_prompt)] + state["messages"]
     response = risk_llm.invoke(messages)
@@ -294,7 +330,18 @@ def recommendation_agent(state: MultiAgentState):
 3. Provide actionable security recommendations
 4. Suggest best practices and controls
 
-Use your tools to create practical remediation guidance."""
+**DATABASE SCHEMA:**
+- Finding nodes have properties: id, scanner, scan_id, timestamp
+- Vulnerability nodes have properties: title, description, severity, vector, cwe_id, owasp_id
+- Asset nodes have properties: url, type, service
+- Relationships: (Finding)-[:HAS_VULNERABILITY]->(Vulnerability), (Finding)-[:AFFECTS]->(Asset)
+
+You have access to these tools:
+1. generate_mitigation_strategy(cwe_id: str): Generates mitigation strategies for vulnerabilities with specific CWE IDs
+2. find_priority_remediation_order(): Finds the optimal order for remediating vulnerabilities based on risk and impact
+3. query_neo4j(query: str): Executes a Cypher query against the Neo4j knowledge graph
+
+For general database queries, always use query_neo4j first to gather information."""
     
     messages = [SystemMessage(content=system_prompt)] + state["messages"]
     response = recommendation_llm.invoke(messages)
@@ -464,6 +511,7 @@ def stream_multi_agent_steps(user_msg: str, db_driver=None, external_trace_id: s
         inputs = {
             "messages": [HumanMessage(content=user_msg)],
             "db_driver": db_driver_to_use,  # Use the available driver
+            "trace_id": str(current_run_id),  # Add the missing trace_id
             "user_id": "anonymous",
             "timestamp": datetime.now().isoformat(),
             "current_agent": "",
