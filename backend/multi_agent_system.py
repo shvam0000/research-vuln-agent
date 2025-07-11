@@ -38,6 +38,11 @@ def query_neo4j(query: str, db_driver: Any = None) -> str:
     start_time = time.time()
     
     def serialize_value(value):
+        # Handle Neo4j DateTime objects
+        if hasattr(value, 'iso_format'):
+            return value.iso_format()
+        if hasattr(value, 'isoformat'):
+            return value.isoformat()
         if isinstance(value, (datetime, date)):
             return value.isoformat()
         if isinstance(value, dict):
@@ -79,7 +84,8 @@ def analyze_vulnerability_severity(finding_id: str, db_driver: Any = None) -> st
     MATCH (f:Finding {{id: '{finding_id}'}})-[:HAS_VULNERABILITY]->(v:Vulnerability)
     OPTIONAL MATCH (f)-[:AFFECTS]->(a:Asset)
     RETURN f.id as finding_id, v.title as vulnerability, v.severity as severity, 
-           v.description as description, v.vector as vector, a.url as asset_url
+           v.description as description, v.vector as vector, 
+           COALESCE(a.url, a.path, a.image, 'Unknown') as asset_url
     """
     return query_neo4j(query, db_driver)
 
@@ -125,7 +131,7 @@ def calculate_risk_score(finding_id: str, db_driver: Any = None) -> str:
     """Calculates a risk score for a specific finding based on multiple factors."""
     query = f"""
     MATCH (f:Finding {{id: '{finding_id}'}})-[:HAS_VULNERABILITY]->(v:Vulnerability)
-    MATCH (f)-[:AFFECTS]->(a:Asset)
+    OPTIONAL MATCH (f)-[:AFFECTS]->(a:Asset)
     WITH f, v, a,
          CASE v.severity 
            WHEN 'CRITICAL' THEN 10 
@@ -135,7 +141,8 @@ def calculate_risk_score(finding_id: str, db_driver: Any = None) -> str:
            ELSE 0 
          END as severity_score
     RETURN f.id as finding_id, v.title as vulnerability, v.severity as severity,
-           severity_score as risk_score, a.url as affected_asset
+           severity_score as risk_score, 
+           COALESCE(a.url, a.path, a.image, 'Unknown') as affected_asset
     """
     return query_neo4j(query, db_driver)
 
@@ -143,7 +150,8 @@ def calculate_risk_score(finding_id: str, db_driver: Any = None) -> str:
 def assess_asset_criticality(asset_url: str, db_driver: Any = None) -> str:
     """Assesses the criticality of an asset based on vulnerability exposure."""
     query = f"""
-    MATCH (f:Finding)-[:AFFECTS]->(a:Asset {{url: '{asset_url}'}})
+    MATCH (f:Finding)-[:AFFECTS]->(a:Asset)
+    WHERE a.url = '{asset_url}' OR a.path = '{asset_url}' OR a.image = '{asset_url}'
     MATCH (f)-[:HAS_VULNERABILITY]->(v:Vulnerability)
     WITH a, count(f) as vulnerability_count,
          sum(CASE v.severity 
@@ -151,7 +159,8 @@ def assess_asset_criticality(asset_url: str, db_driver: Any = None) -> str:
                WHEN 'HIGH' THEN 1 
                ELSE 0 
              END) as high_critical_count
-    RETURN a.url as asset, vulnerability_count, high_critical_count,
+    RETURN COALESCE(a.url, a.path, a.image, 'Unknown') as asset, 
+           vulnerability_count, high_critical_count,
            CASE 
              WHEN high_critical_count > 0 THEN 'CRITICAL'
              WHEN vulnerability_count > 3 THEN 'HIGH'
@@ -178,7 +187,7 @@ def find_priority_remediation_order(db_driver: Any = None) -> str:
     """Finds the optimal order for remediating vulnerabilities based on risk and impact."""
     query = """
     MATCH (f:Finding)-[:HAS_VULNERABILITY]->(v:Vulnerability)
-    MATCH (f)-[:AFFECTS]->(a:Asset)
+    OPTIONAL MATCH (f)-[:AFFECTS]->(a:Asset)
     WITH f, v, a,
          CASE v.severity 
            WHEN 'CRITICAL' THEN 4 
@@ -188,7 +197,7 @@ def find_priority_remediation_order(db_driver: Any = None) -> str:
            ELSE 0 
          END as priority_score
     RETURN f.id as finding_id, v.title as vulnerability, v.severity as severity,
-           priority_score, a.url as affected_asset
+           priority_score, COALESCE(a.url, a.path, a.image, 'Unknown') as affected_asset
     ORDER BY priority_score DESC, f.id
     LIMIT 10
     """
