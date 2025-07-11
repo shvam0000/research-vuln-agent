@@ -26,17 +26,17 @@ def test_env_variables():
     for var in required_vars:
         value = os.getenv(var)
         if value:
-            print(f"✅ {var}: {value[:10]}..." if len(value) > 10 else f"✅ {var}: {value}")
+            print(f"{var}: {value[:10]}..." if len(value) > 10 else f"{var}: {value}")
         else:
-            print(f"❌ {var}: NOT SET")
+            print(f"{var}: NOT SET")
             missing_vars.append(var)
     
     if missing_vars:
-        print(f"\n❌ Missing environment variables: {', '.join(missing_vars)}")
+        print(f"\nMissing environment variables: {', '.join(missing_vars)}")
         print("Please set these in your .env file or environment")
         return False
     else:
-        print("\n✅ All environment variables are set!")
+        print("\nAll environment variables are set!")
         return True
 
 def test_neo4j_connection():
@@ -49,29 +49,29 @@ def test_neo4j_connection():
         password = os.getenv("NEO4J_PASSWORD")
         
         if not all([uri, user, password]):
-            print("❌ Neo4j environment variables not set")
+            print("Neo4j environment variables not set")
             return False
         
         driver = GraphDatabase.driver(uri, auth=(user, password))
         driver.verify_connectivity()
-        print("✅ Neo4j connection successful!")
+        print("Neo4j connection successful!")
         
         # Test a simple query
         with driver.session() as session:
             result = session.run("RETURN 1 as test")
             record = result.single()
             if record and record["test"] == 1:
-                print(f"✅ Neo4j query test successful! {record}")
+                print(f"Neo4j query test successful! {record}")
                 # print("✅ Neo4j query test successful!")
             else:
-                print("❌ Neo4j query test failed")
+                print("Neo4j query test failed")
                 return False
         
         driver.close()
         return True
         
     except Exception as e:
-        print(f"❌ Neo4j connection failed: {e}")
+        print(f"Neo4j connection failed: {e}")
         return False
 
 def test_litellm_connection():
@@ -83,7 +83,7 @@ def test_litellm_connection():
         api_key = os.getenv("LITELLM_API_KEY")
         
         if not all([base_url, api_key]):
-            print("❌ Litellm environment variables not set")
+            print("Litellm environment variables not set")
             return False
         
         # Test with a simple completion request
@@ -101,14 +101,14 @@ def test_litellm_connection():
         response = requests.post(url, json=payload, headers=headers, timeout=10)
         
         if response.status_code == 200:
-            print("✅ Litellm connection successful!")
+            print("Litellm connection successful!")
             return True
         else:
-            print(f"❌ Litellm connection failed: {response.status_code} - {response.text}")
+            print(f"Litellm connection failed: {response.status_code} - {response.text}")
             return False
             
     except Exception as e:
-        print(f"❌ Litellm connection failed: {e}")
+        print(f"Litellm connection failed: {e}")
         return False
 
 def main():
@@ -119,7 +119,7 @@ def main():
     env_ok = test_env_variables()
     
     if not env_ok:
-        print("\n❌ Environment variables not properly set. Please:")
+        print("\nEnvironment variables not properly set. Please:")
         print("1. Copy config.env to .env")
         print("2. Update .env with your actual values")
         print("3. Run this test again")
@@ -131,9 +131,9 @@ def main():
     
     print("\n=== Summary ===")
     if neo4j_ok and litellm_ok:
-        print("✅ All connections successful! Your application should work.")
+        print("All connections successful! Your application should work.")
     else:
-        print("❌ Some connections failed. Please check your configuration.")
+        print("Some connections failed. Please check your configuration.")
 
 if __name__ == "__main__":
     main() 

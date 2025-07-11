@@ -20,7 +20,7 @@ def explore_neo4j_schema():
         password = os.getenv("NEO4J_PASSWORD")
         
         driver = GraphDatabase.driver(uri, auth=(user, password))
-        print("✅ Neo4j driver created successfully")
+        print("Neo4j driver created successfully")
         
         with driver.session() as session:
             # Get all Finding nodes and their properties
@@ -51,10 +51,10 @@ def explore_neo4j_schema():
                 print(f"Finding ID: {record['f.id']}, Title: {record['v.title']}")
         
         driver.close()
-        print("\n✅ Schema exploration completed!")
+        print("\nSchema exploration completed!")
         
     except Exception as e:
-        print(f"❌ Schema exploration failed: {e}")
+        print(f"Schema exploration failed: {e}")
         import traceback
         traceback.print_exc()
 

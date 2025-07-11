@@ -29,12 +29,12 @@ def test_trace_ids():
     print("=" * 60)
     
     external_trace_id = str(uuid.uuid4())
-    print(f"🔍 External Trace ID: {external_trace_id}")
+    print(f"External Trace ID: {external_trace_id}")
     
     user_msg = "What vulnerabilities are in finding F-101?"
     
-    print(f"\n📝 User Message: {user_msg}")
-    print("\n🔄 Streaming response:")
+    print(f"\nUser Message: {user_msg}")
+    print("\nStreaming response:")
     
     for step in stream_agent_steps(user_msg, db_driver=driver, external_trace_id=external_trace_id):
         print(f"  Step: {step['step']}")
@@ -49,14 +49,14 @@ def test_trace_ids():
     print("=" * 60)
     
     external_trace_id_2 = str(uuid.uuid4())
-    print(f"🔍 External Trace ID: {external_trace_id_2}")
+    print(f"External Trace ID: {external_trace_id_2}")
     
     user_msg_2 = "How many findings are there?"
     
-    print(f"\n📝 User Message: {user_msg_2}")
+    print(f"\nUser Message: {user_msg_2}")
     
     response = ask_agent(user_msg_2, db_driver=driver, external_trace_id=external_trace_id_2)
-    print(f"\n✅ Response: {response[:200]}...")
+    print(f"\nResponse: {response[:200]}...")
     
     # Test 3: Without external trace ID (LangGraph generates one)
     print("=" * 60)
@@ -65,8 +65,8 @@ def test_trace_ids():
     
     user_msg_3 = "What is the most common vulnerability type?"
     
-    print(f"\n📝 User Message: {user_msg_3}")
-    print("\n🔄 Streaming response:")
+    print(f"\nUser Message: {user_msg_3}")
+    print("\nStreaming response:")
     
     for step in stream_agent_steps(user_msg_3, db_driver=driver):
         print(f"  Step: {step['step']}")
@@ -76,7 +76,7 @@ def test_trace_ids():
         print()
     
     driver.close()
-    print("✅ Test completed!")
+    print("Test completed!")
 
 if __name__ == "__main__":
     test_trace_ids() 
