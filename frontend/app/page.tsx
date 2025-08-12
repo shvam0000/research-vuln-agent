@@ -16,7 +16,6 @@ const HomePage = () => {
         <div className="relative z-10 px-4 py-20 mx-auto max-w-7xl sm:px-6 lg:px-8">
           <div className="text-center">
             <h1 className="text-5xl font-bold tracking-tight text-white sm:text-6xl lg:text-7xl">
-              <span className="block">MindFort</span>
               <span className="block text-[var(--color-accent)]">Agentic</span>
             </h1>
             <p className="max-w-2xl mx-auto mt-6 text-xl text-gray-300 sm:text-2xl">
@@ -267,8 +266,7 @@ const HomePage = () => {
       <footer className="px-4 py-12 mx-auto max-w-7xl sm:px-6 lg:px-8">
         <div className="text-center">
           <p className="text-gray-500">
-            © 2025 MindFort Agentic. Advanced vulnerability research powered by
-            AI.
+            © 2025 Advanced vulnerability research powered by AI.
           </p>
         </div>
       </footer>

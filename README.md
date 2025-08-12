@@ -1,4 +1,4 @@
-# MindFort Agentic - Vulnerability Research Platform
+# Agentic Vulnerability Research Platform
 
 ## Live Deployment
 
@@ -6,7 +6,7 @@ Deployment - https://research-vuln-agent.vercel.app/
 
 ## Overview
 
-MindFort Agentic is an advanced vulnerability research platform that leverages AI agents to continuously test, discover, and analyze security vulnerabilities in real-time. This system demonstrates autonomous security agents working as a team of elite hackers to deliver comprehensive penetration testing, vulnerability analysis, and compliance insights.
+This is an advanced vulnerability research platform that leverages AI agents to continuously test, discover, and analyze security vulnerabilities in real-time. This system demonstrates autonomous security agents working as a team of elite hackers to deliver comprehensive penetration testing, vulnerability analysis, and compliance insights.
 
 ## 🎯 Project Objective
 
@@ -114,7 +114,7 @@ The platform features a sophisticated multi-agent architecture with specialized 
 
 ```bash
 # Navigate to frontend directory
-cd mindfort-agentic
+cd frontend
 
 # Install dependencies
 npm install
@@ -167,7 +167,7 @@ LANGSMITH_API_KEY=your_langsmith_key
 
 ```bash
 # Navigate to scripts directory
-cd mindfort-agentic/scripts
+cd frontend/scripts
 
 # Ingest sample findings
 npm run ingest-findings
@@ -218,7 +218,7 @@ npm run enrich-graph
 
 ```bash
 # Build and deploy frontend
-cd mindfort-agentic
+cd frontend
 npm run build
 vercel --prod
 ```
@@ -260,7 +260,7 @@ research-vuln-agent/
 │   ├── langgraph_agent.py     # Single agent implementation
 │   ├── enrich_graph.py        # Graph enrichment utilities
 │   └── requirements.txt       # Python dependencies
-├── mindfort-agentic/          # Next.js frontend
+├── frontend/                  # Next.js frontend
 │   ├── app/                   # Next.js app directory
 │   │   ├── chat/             # Chat interface
 │   │   ├── graph/            # Graph visualization
@@ -279,5 +279,3 @@ research-vuln-agent/
 <img src="./readme-assets/4.png" />
 
 This project demonstrates advanced AI agentic capabilities in cybersecurity, showcasing how autonomous agents can revolutionize vulnerability research and security analysis workflows.
-
-**Built with ❤️ for MindFort's autonomous security vision**
