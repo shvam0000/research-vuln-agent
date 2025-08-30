@@ -13,7 +13,7 @@
     "cytoscape": "^3.32.1",
     "dotenv": "^17.2.0",
     "neo4j-driver": "^5.28.1",
-    "next": "15.3.5",
+    "next": "15.4.7",
     "react": "^19.0.0",
     "react-cytoscapejs": "^2.0.0",
     "react-dom": "^19.0.0",
